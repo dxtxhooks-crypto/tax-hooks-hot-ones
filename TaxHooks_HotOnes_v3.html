@@ -1,0 +1,2108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<title>Tax Hooks • Hot Ones: Picnic Edition</title>
+<style>
+  :root {
+    --black: #000000;
+    --bg: #0A0A0A;
+    --smoke: #1a1a2e;
+    --ash: #2A2A3E;
+    --ash-light: #3A3A4E;
+    --gold: #C8A951;
+    --gold-bright: #E5C76B;
+    --gold-deep: #9C7F2E;
+    --gold-dim: rgba(200, 169, 81, 0.3);
+    --crimson: #8B0000;
+    --fire: #FF4500;
+    --fire-bright: #FF6B35;
+    --white: #FFFFFF;
+    --cream: #F5F1E8;
+    --team-gold: #C8A951;
+    --team-fire: #FF4500;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: var(--black);
+    color: var(--white);
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    user-select: none; -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(200, 169, 81, 0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at 70% 80%, rgba(139, 0, 0, 0.08) 0%, transparent 60%),
+      linear-gradient(180deg, #000 0%, #0a0a0a 50%, #000 100%);
+  }
+  body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 1;
+    opacity: 0.06;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    mix-blend-mode: overlay;
+  }
+
+  #app { position: relative; width: 100%; height: 100%; z-index: 2; }
+
+  .screen {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.5s ease;
+    overflow-y: auto;
+  }
+  .screen.active { opacity: 1; pointer-events: auto; }
+
+  /* ===== TITLE SCREEN ===== */
+  #title-screen { align-items: center; justify-content: center; padding: 40px; }
+  .stars-row { color: var(--gold); letter-spacing: 12px; font-size: 20px; margin-bottom: 30px; animation: shimmer 3s infinite; }
+  @keyframes shimmer { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+  .presents { color: var(--gold-bright); font-weight: 700; font-size: 20px; letter-spacing: 14px; text-transform: uppercase; margin-bottom: 8px; text-align: center; }
+  .presents-sub { color: var(--white); font-style: italic; font-size: 13px; letter-spacing: 8px; margin-bottom: 40px; opacity: 0.7; }
+  .gold-line { width: 60%; height: 2px; background: linear-gradient(90deg, transparent, var(--gold), transparent); margin: 16px 0; }
+  .main-title { font-size: 160px; font-weight: 900; letter-spacing: -4px; line-height: 0.9; text-align: center;
+    background: linear-gradient(180deg, #fff 0%, #fff 50%, var(--gold-bright) 50%, var(--gold) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 30px rgba(200, 169, 81, 0.4)); margin: 10px 0 30px;
+  }
+  .subtitle { color: var(--white); font-weight: 700; font-size: 36px; letter-spacing: 16px; text-transform: uppercase; margin-bottom: 20px; text-align: center; }
+  .tagline { color: var(--gold-bright); font-size: 14px; letter-spacing: 6px; font-weight: 600; margin-bottom: 40px; text-align: center; }
+  .tagline .dot { color: var(--gold); margin: 0 10px; }
+  .sponsor-block { text-align: center; margin-top: 30px; }
+  .sponsor-label { color: #555; font-size: 11px; letter-spacing: 12px; font-style: italic; margin-bottom: 10px; }
+  .sponsor-name { color: var(--gold); font-weight: 800; font-size: 28px; letter-spacing: 8px; }
+  .sponsor-since { color: #666; font-size: 12px; font-style: italic; margin-top: 4px; }
+
+  .start-btn {
+    margin-top: 40px; padding: 20px 54px;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep));
+    color: var(--black); border: 2px solid var(--gold-bright);
+    font-weight: 800; font-size: 16px; letter-spacing: 4px; text-transform: uppercase;
+    border-radius: 4px; cursor: pointer;
+    box-shadow: 0 0 40px rgba(200, 169, 81, 0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+    transition: transform 0.15s; font-family: inherit;
+  }
+  .start-btn:active { transform: scale(0.97); }
+
+  /* ===== MODE SELECT SCREEN ===== */
+  #mode-screen { padding: 30px; }
+  .mode-header { text-align: center; margin-bottom: 30px; }
+  .mode-title { font-size: 40px; font-weight: 800; letter-spacing: 4px; color: var(--white); text-transform: uppercase; margin-bottom: 8px; }
+  .mode-sub { color: var(--gold-bright); font-size: 14px; letter-spacing: 6px; font-style: italic; }
+
+  .mode-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px; max-width: 1100px; margin: 0 auto; width: 100%;
+  }
+  .mode-card {
+    background: linear-gradient(180deg, var(--smoke), var(--ash));
+    border: 2px solid var(--gold-deep); border-radius: 8px;
+    padding: 24px; cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .mode-card:active { transform: scale(0.98); }
+  .mode-card.selected { border-color: var(--gold-bright); box-shadow: 0 0 30px rgba(200,169,81,0.4); background: linear-gradient(180deg, rgba(200,169,81,0.15), rgba(200,169,81,0.05)); }
+  .mode-name { color: var(--gold-bright); font-weight: 800; font-size: 22px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px; }
+  .mode-desc { color: var(--white); font-size: 14px; line-height: 1.5; opacity: 0.85; margin-bottom: 12px; }
+  .mode-tag { display: inline-block; padding: 4px 10px; background: rgba(0,0,0,0.4); color: var(--gold); font-size: 11px; letter-spacing: 2px; font-weight: 700; border-radius: 10px; border: 1px solid var(--gold-dim); }
+
+  .options-panel { max-width: 900px; margin: 24px auto; width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--gold-dim); border-radius: 8px; padding: 20px; }
+  .option-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--ash); flex-wrap: wrap; gap: 12px; }
+  .option-row:last-child { border-bottom: none; }
+  .option-label { color: var(--gold-bright); font-weight: 700; font-size: 13px; letter-spacing: 3px; text-transform: uppercase; }
+  .pill-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill {
+    padding: 10px 18px; border-radius: 20px; background: transparent;
+    color: var(--gold); border: 1px solid var(--gold-deep);
+    font-weight: 600; font-size: 13px; letter-spacing: 1px; cursor: pointer;
+    font-family: inherit;
+  }
+  .pill.active { background: var(--gold); color: var(--black); border-color: var(--gold-bright); }
+
+  /* ===== SETUP SCREEN ===== */
+  #setup-screen { padding: 30px; }
+  .setup-header { text-align: center; margin-bottom: 24px; }
+  .setup-title { font-size: 36px; font-weight: 800; letter-spacing: 4px; color: var(--white); text-transform: uppercase; margin-bottom: 6px; }
+  .setup-sub { color: var(--gold-bright); font-size: 14px; letter-spacing: 5px; font-style: italic; }
+
+  .players-panel { max-width: 800px; margin: 0 auto; width: 100%; }
+  .add-player-row { display: flex; gap: 10px; margin-bottom: 20px; }
+  .add-player-row input { flex: 1; background: var(--ash); color: var(--white); border: 1px solid var(--gold-deep); padding: 16px 20px; font-size: 18px; border-radius: 4px; font-family: inherit; }
+  .add-player-row input:focus { outline: 2px solid var(--gold); }
+  .add-player-row select { background: var(--ash); color: var(--white); border: 1px solid var(--gold-deep); padding: 0 14px; border-radius: 4px; font-family: inherit; font-size: 14px; font-weight: 700; letter-spacing: 2px; min-width: 130px; }
+  .add-btn { padding: 16px 28px; background: var(--gold); color: var(--black); border: none; font-weight: 700; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; border-radius: 4px; cursor: pointer; font-family: inherit; }
+
+  .player-list { display: flex; flex-direction: column; gap: 8px; }
+  .player-chip {
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(90deg, var(--smoke), var(--ash));
+    border: 1px solid var(--gold-dim);
+    padding: 14px 20px; border-radius: 4px;
+  }
+  .player-chip.team-gold { border-left: 4px solid var(--gold); }
+  .player-chip.team-fire { border-left: 4px solid var(--fire); }
+  .player-chip .name { font-size: 18px; font-weight: 600; color: var(--white); }
+  .player-chip .team-badge { font-size: 11px; letter-spacing: 2px; font-weight: 700; padding: 3px 10px; border-radius: 10px; margin-left: 10px; }
+  .player-chip.team-gold .team-badge { background: var(--gold); color: var(--black); }
+  .player-chip.team-fire .team-badge { background: var(--fire); color: var(--white); }
+  .player-chip .remove { color: var(--crimson); font-weight: 700; font-size: 14px; background: transparent; border: none; cursor: pointer; padding: 6px 12px; font-family: inherit; }
+
+  .setup-footer { max-width: 800px; margin: 30px auto 0; width: 100%; display: flex; gap: 14px; }
+  .setup-footer button { flex: 1; padding: 18px; font-weight: 700; font-size: 14px; letter-spacing: 3px; text-transform: uppercase; border-radius: 4px; cursor: pointer; font-family: inherit; }
+  .btn-back { background: transparent; color: var(--gold); border: 1px solid var(--gold-deep); }
+  .btn-start-show { background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep)); color: var(--black); border: 2px solid var(--gold-bright); box-shadow: 0 0 30px rgba(200,169,81,0.3); }
+  .btn-start-show:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; }
+
+  /* ===== GAME SCREEN ===== */
+  #game-screen { display: flex; flex-direction: column; padding: 20px; overflow: hidden; }
+  .top-bar { display: flex; justify-content: space-between; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--gold-dim); margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+  .wing-badge { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .wing-num { background: var(--gold); color: var(--black); font-weight: 900; font-size: 22px; padding: 6px 14px; border-radius: 3px; letter-spacing: 2px; }
+  .wing-num.final { background: var(--crimson); color: var(--gold-bright); animation: pulseFire 1.5s infinite; }
+  @keyframes pulseFire { 0%, 100% { box-shadow: 0 0 0 rgba(255,69,0,0); } 50% { box-shadow: 0 0 30px rgba(255,69,0,0.8); } }
+  .sauce-label { color: var(--white); font-weight: 700; font-size: 16px; letter-spacing: 2px; text-transform: uppercase; }
+  .shu-chip { color: var(--fire); font-weight: 700; font-size: 12px; letter-spacing: 2px; border: 1px solid var(--fire); padding: 3px 10px; border-radius: 20px; }
+  .cat-chip { color: var(--gold); font-weight: 600; font-size: 11px; letter-spacing: 2px; padding: 3px 10px; border-radius: 20px; background: rgba(200,169,81,0.1); border: 1px solid var(--gold-dim); }
+  .diff-chip { color: var(--white); font-weight: 600; font-size: 11px; letter-spacing: 1px; padding: 3px 8px; border-radius: 3px; }
+  .diff-1 { background: rgba(46,139,87,0.4); }
+  .diff-2 { background: rgba(255,140,0,0.4); }
+  .diff-3 { background: rgba(220,20,60,0.4); }
+
+  .top-bar-right { display: flex; gap: 8px; align-items: center; }
+  .icon-btn { background: transparent; border: 1px solid var(--gold-dim); color: var(--gold); padding: 8px 14px; font-weight: 600; font-size: 11px; letter-spacing: 2px; border-radius: 3px; cursor: pointer; text-transform: uppercase; font-family: inherit; }
+
+  .game-body { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; position: relative; min-height: 0; overflow-y: auto; }
+
+  .phase { opacity: 0; display: none; width: 100%; }
+  .phase.active { display: block; opacity: 1; animation: fadeIn 0.5s; }
+
+  .question-phase { width: 100%; max-width: 900px; text-align: center; margin: 0 auto; }
+  .q-label { color: var(--gold-bright); font-size: 12px; letter-spacing: 8px; font-weight: 700; margin-bottom: 18px; animation: fadeIn 0.6s; }
+  .on-the-spot { color: var(--fire); font-size: 13px; letter-spacing: 6px; font-weight: 700; margin-bottom: 14px; }
+  .on-the-spot-name { color: var(--gold-bright); font-size: 24px; font-weight: 800; letter-spacing: 3px; margin-bottom: 20px; }
+  .q-text { color: var(--white); font-size: 42px; font-weight: 700; line-height: 1.3; padding: 34px 20px;
+    background: linear-gradient(180deg, rgba(26,26,46,0.6), rgba(0,0,0,0.4));
+    border: 1px solid var(--gold-dim); border-radius: 8px;
+    box-shadow: 0 0 60px rgba(0,0,0,0.8), inset 0 0 40px rgba(200,169,81,0.05);
+    animation: slideUp 0.7s;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .q-hint { color: #666; font-style: italic; font-size: 13px; margin-top: 16px; letter-spacing: 2px; }
+
+  .answer-phase { width: 100%; max-width: 900px; text-align: center; margin: 0 auto; }
+  .answer-label { color: var(--fire); font-size: 14px; letter-spacing: 10px; font-weight: 800; margin-bottom: 10px; animation: flashIn 0.5s; }
+  @keyframes flashIn { 0% { opacity: 0; transform: scale(0.9); } 50% { transform: scale(1.05); } 100% { opacity: 1; transform: scale(1); } }
+  .answer-text { color: var(--gold-bright); font-size: 82px; font-weight: 900; letter-spacing: 2px; text-shadow: 0 0 40px rgba(200,169,81,0.6); padding: 30px 20px; animation: flashIn 0.7s 0.1s both; line-height: 1.1; }
+  .answer-accept { color: #999; font-size: 14px; margin-top: 8px; font-style: italic; }
+  .answer-note { color: var(--white); font-style: italic; font-size: 16px; opacity: 0.7; margin-top: 14px; animation: fadeIn 0.6s 0.6s both; }
+
+  /* VERDICT — now with team support */
+  .verdict-phase { width: 100%; max-width: 1100px; margin: 0 auto; }
+  .verdict-label { text-align: center; color: var(--gold-bright); font-size: 15px; letter-spacing: 6px; font-weight: 700; margin-bottom: 22px; }
+  .player-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .player-verdict {
+    background: var(--smoke);
+    border: 2px solid var(--ash);
+    border-radius: 6px; padding: 20px; text-align: center; cursor: pointer;
+    transition: all 0.2s; position: relative;
+  }
+  .player-verdict.team-gold { border-left: 5px solid var(--gold); }
+  .player-verdict.team-fire { border-left: 5px solid var(--fire); }
+  .player-verdict:active { transform: scale(0.98); }
+  .player-verdict.eliminated { opacity: 0.3; pointer-events: none; }
+  .player-verdict .pv-name { font-size: 20px; font-weight: 700; color: var(--white); margin-bottom: 12px; }
+  .player-verdict .pv-strikes { color: var(--fire); font-size: 12px; letter-spacing: 2px; margin-bottom: 6px; min-height: 16px; }
+  .player-verdict .pv-status { font-size: 11px; letter-spacing: 3px; font-weight: 700; color: var(--gold); text-transform: uppercase; }
+  .player-verdict.correct { background: linear-gradient(180deg, rgba(200,169,81,0.15), rgba(200,169,81,0.05)); border-color: var(--gold); box-shadow: 0 0 20px rgba(200,169,81,0.3); }
+  .player-verdict.correct .pv-status { color: var(--gold-bright); }
+  .player-verdict.correct .pv-status::before { content: "✓ "; }
+  .player-verdict.wrong { background: linear-gradient(180deg, rgba(139,0,0,0.3), rgba(139,0,0,0.1)); border-color: var(--crimson); box-shadow: 0 0 20px rgba(255,69,0,0.4); }
+  .player-verdict.wrong .pv-status { color: var(--fire); }
+  .player-verdict.wrong .pv-status::before { content: "🔥 "; }
+  .player-verdict.doubled { background: linear-gradient(180deg, rgba(255,69,0,0.3), rgba(255,69,0,0.1)); border-color: var(--fire); box-shadow: 0 0 25px rgba(255,69,0,0.5); }
+  .player-verdict.doubled::after { content: "× 2"; position: absolute; top: 6px; right: 8px; color: var(--fire); font-weight: 800; font-size: 14px; letter-spacing: 1px; }
+
+  /* Team summary during verdict */
+  .team-summary { display: flex; justify-content: center; gap: 24px; margin-bottom: 18px; }
+  .team-box { padding: 10px 20px; border-radius: 6px; min-width: 160px; text-align: center; }
+  .team-box.team-gold { background: rgba(200,169,81,0.2); border: 1px solid var(--gold); }
+  .team-box.team-fire { background: rgba(255,69,0,0.2); border: 1px solid var(--fire); }
+  .team-box-name { font-size: 11px; letter-spacing: 3px; font-weight: 800; margin-bottom: 4px; }
+  .team-box.team-gold .team-box-name { color: var(--gold-bright); }
+  .team-box.team-fire .team-box-name { color: var(--fire-bright); }
+  .team-box-stat { font-size: 20px; font-weight: 800; color: var(--white); }
+
+  .action-bar { padding: 14px 20px; display: flex; gap: 12px; justify-content: center; border-top: 1px solid var(--gold-dim); margin-top: 10px; flex-wrap: wrap; }
+  .action-btn { padding: 16px 32px; font-weight: 800; font-size: 13px; letter-spacing: 3px; text-transform: uppercase; border-radius: 4px; cursor: pointer; font-family: inherit; min-width: 160px; }
+  .action-btn.primary { background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep)); color: var(--black); border: 2px solid var(--gold-bright); box-shadow: 0 0 30px rgba(200,169,81,0.3); }
+  .action-btn.ghost { background: transparent; color: var(--gold); border: 1px solid var(--gold-deep); }
+  .action-btn.danger { background: transparent; color: var(--fire); border: 1px solid var(--fire); }
+  .action-btn:active { transform: scale(0.97); }
+  .action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* Scoreboard */
+  .scoreboard { position: absolute; top: 0; right: 0; bottom: 0; width: 340px; background: var(--black); border-left: 2px solid var(--gold); padding: 24px 18px; z-index: 10; transform: translateX(100%); transition: transform 0.4s; overflow-y: auto; }
+  .scoreboard.open { transform: translateX(0); }
+  .scoreboard h2 { color: var(--gold-bright); font-size: 18px; letter-spacing: 5px; margin-bottom: 20px; text-align: center; padding-bottom: 12px; border-bottom: 1px solid var(--gold-dim); }
+  .score-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 8px; border-bottom: 1px solid var(--ash); }
+  .score-row .sr-name { font-size: 16px; font-weight: 600; }
+  .score-row .sr-stats { display: flex; gap: 6px; align-items: center; }
+  .stat-pill { padding: 3px 9px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+  .stat-pill.wings { background: var(--crimson); color: var(--gold-bright); }
+  .stat-pill.correct { background: rgba(200,169,81,0.2); color: var(--gold-bright); border: 1px solid var(--gold-dim); }
+  .stat-pill.strikes { background: var(--fire); color: var(--white); }
+
+  .score-team-header { color: var(--gold-bright); font-weight: 800; font-size: 14px; letter-spacing: 4px; padding: 12px 8px 8px; border-bottom: 1px solid var(--gold-dim); margin-top: 14px; }
+  .score-team-header.team-gold { color: var(--gold-bright); }
+  .score-team-header.team-fire { color: var(--fire-bright); }
+
+  /* ===== DOUBLE DOWN OFFER ===== */
+  .double-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.92); z-index: 20; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 30px; animation: fadeIn 0.4s; }
+  .double-overlay h2 { color: var(--fire); font-size: 46px; font-weight: 900; letter-spacing: 6px; margin-bottom: 16px; text-shadow: 0 0 30px rgba(255,69,0,0.6); }
+  .double-overlay p { color: var(--white); font-size: 17px; text-align: center; max-width: 600px; margin-bottom: 26px; line-height: 1.5; opacity: 0.9; }
+  .double-picker { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 26px; max-width: 700px; }
+  .double-picker button { padding: 12px 20px; background: var(--ash); color: var(--white); border: 1px solid var(--gold-deep); border-radius: 4px; font-weight: 600; font-family: inherit; cursor: pointer; font-size: 14px; }
+  .double-picker button.selected { background: var(--fire); color: var(--white); border-color: var(--fire); }
+  .double-actions { display: flex; gap: 14px; }
+
+  /* ===== FINALE ===== */
+  #finale-screen { padding: 30px; text-align: center; justify-content: center; align-items: center; }
+  .finale-title { font-size: 64px; font-weight: 900; color: var(--gold-bright); letter-spacing: 6px; margin-bottom: 16px; text-shadow: 0 0 40px rgba(200,169,81,0.5); }
+  .finale-sub { font-size: 20px; color: var(--white); letter-spacing: 6px; font-style: italic; margin-bottom: 30px; opacity: 0.8; }
+  .final-scoreboard { max-width: 700px; width: 100%; margin: 0 auto; background: rgba(26,26,46,0.6); border: 2px solid var(--gold); border-radius: 8px; padding: 24px; }
+  .final-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--gold-dim); font-size: 18px; }
+  .final-row:last-child { border-bottom: none; }
+  .final-row .fr-name { color: var(--white); font-weight: 600; }
+  .final-row .fr-stats { color: var(--gold-bright); font-weight: 700; font-size: 15px; }
+  .final-row.winner { background: linear-gradient(90deg, transparent, rgba(200,169,81,0.2), transparent); }
+  .final-row.winner .fr-name::before { content: "★ "; color: var(--gold); }
+  .finale-winner-banner { font-size: 22px; color: var(--gold-bright); font-weight: 800; letter-spacing: 3px; margin: 20px 0 30px; animation: shimmer 2s infinite; }
+  .finale-btns { margin-top: 30px; display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+
+  /* Safe insets */
+  @supports (padding: env(safe-area-inset-top)) {
+    #game-screen { padding-top: max(20px, env(safe-area-inset-top)); }
+    #title-screen, #setup-screen, #mode-screen, #finale-screen { padding-top: max(30px, env(safe-area-inset-top)); padding-bottom: max(30px, env(safe-area-inset-bottom)); }
+  }
+
+  /* ===== AUDIENCE WILDCARD OVERLAY ===== */
+  .wildcard-overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: radial-gradient(ellipse at center, rgba(139,0,0,0.5) 0%, #000 70%);
+    display: none; flex-direction: column; justify-content: center; align-items: center;
+    padding: 30px; text-align: center;
+    animation: fadeIn 0.4s;
+  }
+  .wildcard-overlay.open { display: flex; }
+  .wildcard-overlay::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(45deg, transparent 0, transparent 40px, rgba(255,69,0,0.05) 40px, rgba(255,69,0,0.05) 80px);
+    animation: slideBg 20s linear infinite;
+  }
+  @keyframes slideBg { from { background-position: 0 0; } to { background-position: 80px 80px; } }
+
+  .wc-banner {
+    color: var(--fire); font-size: 22px; letter-spacing: 10px; font-weight: 800;
+    margin-bottom: 14px; text-shadow: 0 0 20px rgba(255,69,0,0.8);
+    animation: shimmer 1.5s infinite;
+    z-index: 2; position: relative;
+  }
+  .wc-title {
+    color: var(--white); font-size: 88px; font-weight: 900;
+    letter-spacing: 4px; margin-bottom: 30px;
+    text-shadow: 0 0 40px rgba(200,169,81,0.5);
+    line-height: 0.95;
+    z-index: 2; position: relative;
+  }
+  .wc-subtitle {
+    color: var(--gold-bright); font-size: 18px; letter-spacing: 6px;
+    font-style: italic; margin-bottom: 40px;
+    z-index: 2; position: relative;
+  }
+  .wc-question {
+    color: var(--white); font-size: 44px; font-weight: 700; line-height: 1.25;
+    padding: 40px 30px; max-width: 1100px; margin: 0 auto 40px;
+    background: rgba(0,0,0,0.5); border: 2px solid var(--gold);
+    border-radius: 10px; box-shadow: 0 0 60px rgba(200,169,81,0.3);
+    z-index: 2; position: relative;
+  }
+  .wc-instructions {
+    color: var(--cream); font-size: 20px; letter-spacing: 3px; line-height: 1.6;
+    margin-bottom: 40px; max-width: 800px; opacity: 0.9;
+    z-index: 2; position: relative;
+  }
+  .wc-instructions strong { color: var(--gold-bright); font-weight: 800; }
+
+  .wc-answer-reveal {
+    color: var(--gold-bright); font-size: 80px; font-weight: 900;
+    letter-spacing: 2px; margin: 20px 0 30px;
+    text-shadow: 0 0 40px rgba(200,169,81,0.7);
+    animation: flashIn 0.6s;
+    z-index: 2; position: relative;
+  }
+
+  .wc-verdict-buttons {
+    display: flex; gap: 20px; justify-content: center;
+    flex-wrap: wrap; z-index: 2; position: relative;
+  }
+  .wc-verdict-btn {
+    padding: 28px 40px; font-weight: 800; font-size: 20px;
+    letter-spacing: 4px; text-transform: uppercase;
+    border-radius: 6px; cursor: pointer; font-family: inherit;
+    min-width: 280px; transition: transform 0.15s;
+  }
+  .wc-verdict-btn:active { transform: scale(0.97); }
+  .wc-verdict-btn.crowd-win {
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep));
+    color: var(--black); border: 3px solid var(--gold-bright);
+    box-shadow: 0 0 40px rgba(200,169,81,0.5);
+  }
+  .wc-verdict-btn.crowd-whiff {
+    background: linear-gradient(180deg, var(--fire-bright), #B22222);
+    color: var(--white); border: 3px solid var(--fire-bright);
+    box-shadow: 0 0 40px rgba(255,69,0,0.5);
+  }
+  .wc-dismiss {
+    position: absolute; top: 24px; right: 30px;
+    background: transparent; border: 1px solid var(--gold-dim);
+    color: var(--gold); padding: 10px 18px; border-radius: 3px;
+    font-weight: 600; font-size: 12px; letter-spacing: 2px;
+    cursor: pointer; font-family: inherit; z-index: 3;
+  }
+  .wc-counter {
+    color: var(--gold-dim); font-size: 11px; letter-spacing: 3px;
+    margin-top: 30px; font-weight: 600;
+    z-index: 2; position: relative;
+  }
+
+  .wildcard-btn {
+    background: linear-gradient(180deg, var(--fire), #8B0000) !important;
+    color: var(--white) !important;
+    border-color: var(--fire) !important;
+    font-weight: 800 !important;
+    animation: pulseWildcard 2s infinite;
+  }
+  .wildcard-btn:disabled {
+    opacity: 0.25; animation: none;
+  }
+  @keyframes pulseWildcard {
+    0%, 100% { box-shadow: 0 0 0 rgba(255,69,0,0); }
+    50% { box-shadow: 0 0 15px rgba(255,69,0,0.6); }
+  }
+
+  /* ===== CUSTOM QUESTION EDITOR ===== */
+  #editor-screen { padding: 30px; }
+  .editor-header { text-align: center; margin-bottom: 24px; }
+  .editor-title { font-size: 36px; font-weight: 800; letter-spacing: 4px; color: var(--white); text-transform: uppercase; margin-bottom: 6px; }
+  .editor-sub { color: var(--gold-bright); font-size: 14px; letter-spacing: 5px; font-style: italic; }
+
+  .editor-panel {
+    max-width: 900px; margin: 0 auto 20px; width: 100%;
+    background: rgba(0,0,0,0.4); border: 1px solid var(--gold-dim);
+    border-radius: 8px; padding: 24px;
+  }
+  .editor-panel h3 {
+    color: var(--gold-bright); font-size: 14px; letter-spacing: 4px;
+    font-weight: 700; margin-bottom: 14px; text-transform: uppercase;
+  }
+  .editor-form { display: flex; flex-direction: column; gap: 12px; }
+  .editor-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .editor-row > * { flex: 1; min-width: 150px; }
+  .editor-input, .editor-select, .editor-textarea {
+    background: var(--ash); color: var(--white);
+    border: 1px solid var(--gold-deep); padding: 12px 16px;
+    font-size: 16px; border-radius: 4px;
+    font-family: inherit; width: 100%;
+  }
+  .editor-input:focus, .editor-select:focus, .editor-textarea:focus {
+    outline: 2px solid var(--gold);
+  }
+  .editor-textarea { resize: vertical; min-height: 60px; }
+  .editor-label {
+    color: var(--gold); font-size: 11px; letter-spacing: 3px;
+    font-weight: 700; text-transform: uppercase; display: block;
+    margin-bottom: 4px; margin-top: 6px;
+  }
+  .editor-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; flex-wrap: wrap; }
+  .editor-btn {
+    padding: 12px 24px; border-radius: 4px; cursor: pointer;
+    font-weight: 700; font-size: 13px; letter-spacing: 2px;
+    text-transform: uppercase; font-family: inherit; border: none;
+  }
+  .editor-btn.save { background: var(--gold); color: var(--black); }
+  .editor-btn.cancel { background: transparent; color: var(--gold); border: 1px solid var(--gold-deep); }
+
+  .custom-list { display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow-y: auto; }
+  .custom-item {
+    background: var(--smoke); border: 1px solid var(--gold-dim);
+    border-radius: 4px; padding: 14px 18px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .custom-item-body { flex: 1; min-width: 0; }
+  .custom-item-q { color: var(--white); font-size: 15px; font-weight: 600; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .custom-item-meta { color: var(--gold-bright); font-size: 11px; letter-spacing: 2px; }
+  .custom-item-meta span { margin-right: 10px; opacity: 0.8; }
+  .custom-item-actions { display: flex; gap: 6px; }
+  .custom-item-btn {
+    background: transparent; border: 1px solid var(--gold-deep);
+    color: var(--gold); padding: 6px 10px; border-radius: 3px;
+    font-size: 11px; letter-spacing: 1px; cursor: pointer;
+    font-family: inherit; text-transform: uppercase; font-weight: 600;
+  }
+  .custom-item-btn.del { color: var(--fire); border-color: var(--fire); }
+
+  .editor-empty {
+    text-align: center; padding: 30px; color: #666;
+    font-style: italic; font-size: 14px;
+  }
+
+  .io-panel { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
+  .io-btn {
+    background: transparent; border: 1px solid var(--gold-deep);
+    color: var(--gold); padding: 10px 18px; border-radius: 4px;
+    font-family: inherit; font-weight: 600; font-size: 12px;
+    letter-spacing: 2px; text-transform: uppercase; cursor: pointer;
+  }
+
+  .custom-toggle-row {
+    display: flex; align-items: center; gap: 16px;
+    padding: 12px 16px; background: rgba(200,169,81,0.1);
+    border: 1px solid var(--gold-dim); border-radius: 4px;
+    margin-top: 12px;
+  }
+  .custom-toggle-row label {
+    color: var(--gold-bright); font-weight: 700; font-size: 12px;
+    letter-spacing: 3px; text-transform: uppercase; cursor: pointer;
+  }
+  .custom-toggle-row input[type="checkbox"] {
+    width: 22px; height: 22px; accent-color: var(--gold);
+    cursor: pointer;
+  }
+
+  @media (orientation: portrait) {
+    .main-title { font-size: 130px; }
+    .subtitle { font-size: 28px; letter-spacing: 10px; }
+    .q-text { font-size: 30px; padding: 24px 16px; }
+    .answer-text { font-size: 62px; }
+    .wc-title { font-size: 62px; }
+    .wc-question { font-size: 32px; padding: 28px 20px; }
+    .wc-answer-reveal { font-size: 56px; }
+  }
+
+  @media (max-width: 600px) {
+    .main-title { font-size: 80px; }
+    .subtitle { font-size: 20px; letter-spacing: 6px; }
+    .q-text { font-size: 24px; }
+    .answer-text { font-size: 44px; }
+    .scoreboard { width: 100%; }
+    .mode-grid { grid-template-columns: 1fr; }
+  }
+
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TITLE -->
+  <div id="title-screen" class="screen active">
+    <div class="stars-row">★ ★ ★</div>
+    <div class="presents">TAX HOOKS PRESENTS</div>
+    <div class="presents-sub">A PREMIERE EVENT</div>
+    <div class="gold-line"></div>
+    <div class="main-title">HOT<br>ONES</div>
+    <div class="gold-line"></div>
+    <div class="subtitle">THE PICNIC EDITION</div>
+    <div class="tagline">
+      WINGS<span class="dot">•</span>QUESTIONS<span class="dot">•</span>LEGENDS
+    </div>
+    <div class="sponsor-block">
+      <div class="sponsor-label">PROUDLY SPONSORED BY</div>
+      <div class="sponsor-name">HOOKS & BOOKS</div>
+      <div class="sponsor-since">Since 1984</div>
+    </div>
+    <button class="start-btn" onclick="goTo('mode-screen')">★  BEGIN THE SHOW  ★</button>
+  </div>
+
+  <!-- MODE SELECT -->
+  <div id="mode-screen" class="screen">
+    <div class="mode-header">
+      <div class="mode-title">Pick Your Format</div>
+      <div class="mode-sub">CHOOSE THE MODE, SET THE RULES</div>
+    </div>
+    <div class="mode-grid" id="mode-grid"></div>
+    <div class="options-panel">
+      <div class="option-row">
+        <div class="option-label">Wings</div>
+        <div class="pill-group" id="wings-picker">
+          <button class="pill" data-wings="5">5</button>
+          <button class="pill active" data-wings="10">10</button>
+          <button class="pill" data-wings="15">15</button>
+          <button class="pill" data-wings="20">20</button>
+        </div>
+      </div>
+      <div class="option-row">
+        <div class="option-label">Difficulty</div>
+        <div class="pill-group" id="diff-picker">
+          <button class="pill" data-diff="1">Easy</button>
+          <button class="pill" data-diff="2">Medium</button>
+          <button class="pill" data-diff="3">Hard</button>
+          <button class="pill active" data-diff="mixed">Mixed</button>
+        </div>
+      </div>
+      <div class="option-row">
+        <div class="option-label">Category</div>
+        <div class="pill-group" id="cat-picker">
+          <button class="pill active" data-cat="all">All Mixed</button>
+          <button class="pill" data-cat="general">General</button>
+          <button class="pill" data-cat="history">History</button>
+          <button class="pill" data-cat="geography">Geography</button>
+          <button class="pill" data-cat="science">Science</button>
+          <button class="pill" data-cat="popculture">Pop Culture</button>
+          <button class="pill" data-cat="movies">Movies</button>
+          <button class="pill" data-cat="music">Music</button>
+          <button class="pill" data-cat="sports">Sports</button>
+          <button class="pill" data-cat="food">Food</button>
+          <button class="pill" data-cat="business">Business</button>
+          <button class="pill" data-cat="weird">Weird</button>
+          <button class="pill" data-cat="custom">My Custom</button>
+        </div>
+      </div>
+      <div class="custom-toggle-row" id="custom-toggle-row" style="display:none;">
+        <input type="checkbox" id="include-custom" checked>
+        <label for="include-custom">INCLUDE MY CUSTOM QUESTIONS</label>
+      </div>
+    </div>
+    <div class="setup-footer">
+      <button class="btn-back" onclick="goTo('title-screen')">← BACK</button>
+      <button class="icon-btn" style="flex:none; padding: 18px 22px; letter-spacing: 2px;" onclick="goTo('editor-screen')">✎ EDIT QUESTIONS</button>
+      <button class="btn-start-show" onclick="goTo('setup-screen')">NEXT: LINEUP →</button>
+    </div>
+  </div>
+
+  <!-- SETUP -->
+  <div id="setup-screen" class="screen">
+    <div class="setup-header">
+      <div class="setup-title">The Lineup</div>
+      <div class="setup-sub" id="setup-sub-text">WHO'S IN THE HOT SEAT?</div>
+    </div>
+    <div class="players-panel">
+      <div class="add-player-row">
+        <input type="text" id="player-input" placeholder="Contestant name" maxlength="20"
+               onkeypress="if(event.key==='Enter') addPlayer()">
+        <select id="team-select" style="display:none;">
+          <option value="gold">TEAM GOLD</option>
+          <option value="fire">TEAM FIRE</option>
+        </select>
+        <button class="add-btn" onclick="addPlayer()">ADD</button>
+      </div>
+      <div class="player-list" id="player-list"></div>
+    </div>
+    <div class="setup-footer">
+      <button class="btn-back" onclick="goTo('mode-screen')">← BACK</button>
+      <button class="btn-start-show" id="start-show-btn" onclick="startShow()" disabled>
+        ROLL CAMERA →
+      </button>
+    </div>
+  </div>
+
+  <!-- GAME -->
+  <div id="game-screen" class="screen">
+    <div class="top-bar">
+      <div class="wing-badge">
+        <span class="wing-num" id="wing-num">01</span>
+        <span class="sauce-label" id="sauce-label">CHILI MAPLE</span>
+        <span class="shu-chip" id="shu-chip">1,500 SHU</span>
+        <span class="cat-chip" id="cat-chip">GENERAL</span>
+        <span class="diff-chip diff-1" id="diff-chip">EASY</span>
+      </div>
+      <div class="top-bar-right">
+        <button class="icon-btn wildcard-btn" id="wildcard-btn" onclick="triggerWildcard()">🔥 Wildcard</button>
+        <button class="icon-btn" onclick="skipQuestion()">Skip Q</button>
+        <button class="icon-btn" onclick="toggleScoreboard()">Score</button>
+        <button class="icon-btn" onclick="confirmExit()">Exit</button>
+      </div>
+    </div>
+
+    <div class="game-body">
+      <div class="phase active" id="phase-question">
+        <div class="question-phase">
+          <div class="q-label">★ THE QUESTION ★</div>
+          <div id="on-the-spot-block" style="display:none;">
+            <div class="on-the-spot">★ ON THE SPOT ★</div>
+            <div class="on-the-spot-name" id="on-the-spot-name"></div>
+          </div>
+          <div class="q-text" id="q-text">Loading...</div>
+          <div class="q-hint" id="q-hint">Everyone commits before reveal.</div>
+        </div>
+      </div>
+
+      <div class="phase" id="phase-answer">
+        <div class="answer-phase">
+          <div class="answer-label">★ THE ANSWER ★</div>
+          <div class="answer-text" id="answer-text">—</div>
+          <div class="answer-accept" id="answer-accept"></div>
+          <div class="answer-note" id="answer-note"></div>
+        </div>
+      </div>
+
+      <div class="phase" id="phase-verdict">
+        <div class="verdict-phase">
+          <div id="team-summary-block" style="display:none;">
+            <div class="team-summary" id="team-summary"></div>
+          </div>
+          <div class="verdict-label" id="verdict-label">TAP EACH NAME — WRONG ANSWERS EAT THE WING</div>
+          <div class="player-grid" id="player-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="action-bar" id="action-bar">
+      <button class="action-btn ghost" id="btn-prev" onclick="phasePrev()">← BACK</button>
+      <button class="action-btn primary" id="btn-next" onclick="phaseNext()">REVEAL ANSWER →</button>
+    </div>
+
+    <div class="scoreboard" id="scoreboard">
+      <h2>SCOREBOARD</h2>
+      <div id="score-list"></div>
+    </div>
+
+    <!-- Double-Down overlay (for Double-or-Nothing mode) -->
+    <div class="double-overlay" id="double-overlay" style="display:none;">
+      <h2>DOUBLE DOWN?</h2>
+      <p>Before the question is revealed, anyone can double down. Answer right, skip the next wing too. Answer wrong, eat this wing AND the next.</p>
+      <div class="double-picker" id="double-picker"></div>
+      <div class="double-actions">
+        <button class="action-btn ghost" onclick="cancelDouble()">NOBODY'S DOUBLING</button>
+        <button class="action-btn primary" onclick="confirmDouble()">LOCK IT IN →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FINALE -->
+  <div id="finale-screen" class="screen">
+    <div class="stars-row">★ ★ ★ ★ ★</div>
+    <div class="finale-title">THAT'S A WRAP</div>
+    <div class="finale-sub">THE FINAL SCOREBOARD</div>
+    <div class="finale-winner-banner" id="finale-winner"></div>
+    <div class="final-scoreboard" id="final-scoreboard"></div>
+    <div class="finale-btns">
+      <button class="start-btn" onclick="resetGame(false)">RUN IT BACK</button>
+      <button class="start-btn" onclick="resetGame(true)" style="background:transparent; color: var(--gold); border: 2px solid var(--gold-deep); box-shadow:none;">NEW GAME</button>
+    </div>
+  </div>
+
+  <!-- CUSTOM QUESTION EDITOR -->
+  <div id="editor-screen" class="screen">
+    <div class="editor-header">
+      <div class="editor-title">Custom Questions</div>
+      <div class="editor-sub">BUILD YOUR OWN BANK</div>
+    </div>
+    <div class="editor-panel">
+      <h3>Add or Edit Question</h3>
+      <div class="editor-form">
+        <div>
+          <span class="editor-label">Question</span>
+          <input type="text" id="cq-question" class="editor-input" placeholder="What is the capital of Australia?" maxlength="280">
+        </div>
+        <div class="editor-row">
+          <div>
+            <span class="editor-label">Correct Answer</span>
+            <input type="text" id="cq-answer" class="editor-input" placeholder="Canberra" maxlength="100">
+          </div>
+          <div>
+            <span class="editor-label">Alt. Accepted (comma-separated)</span>
+            <input type="text" id="cq-accept" class="editor-input" placeholder="canberra, canbera" maxlength="200">
+          </div>
+        </div>
+        <div class="editor-row">
+          <div>
+            <span class="editor-label">Category</span>
+            <select id="cq-category" class="editor-select">
+              <option value="custom">Custom / Inside Jokes</option>
+              <option value="general">General</option>
+              <option value="history">History</option>
+              <option value="geography">Geography</option>
+              <option value="science">Science</option>
+              <option value="popculture">Pop Culture</option>
+              <option value="movies">Movies</option>
+              <option value="music">Music</option>
+              <option value="sports">Sports</option>
+              <option value="food">Food</option>
+              <option value="business">Business</option>
+              <option value="weird">Weird</option>
+            </select>
+          </div>
+          <div>
+            <span class="editor-label">Difficulty</span>
+            <select id="cq-difficulty" class="editor-select">
+              <option value="1">Easy</option>
+              <option value="2" selected>Medium</option>
+              <option value="3">Hard</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <span class="editor-label">Host Note (optional)</span>
+          <textarea id="cq-note" class="editor-textarea" placeholder="e.g. 'NOT Sydney. Half the room will say Sydney.'" maxlength="280"></textarea>
+        </div>
+        <div class="editor-actions">
+          <button class="editor-btn cancel" onclick="clearEditor()">CLEAR</button>
+          <button class="editor-btn save" id="cq-save-btn" onclick="saveCustomQuestion()">ADD TO BANK</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="editor-panel">
+      <h3>Your Custom Bank (<span id="cq-count">0</span>)</h3>
+      <div class="custom-list" id="custom-list"></div>
+      <div class="io-panel">
+        <button class="io-btn" onclick="exportCustomBank()">📤 Export</button>
+        <button class="io-btn" onclick="document.getElementById('import-file').click()">📥 Import</button>
+        <button class="io-btn" style="color: var(--fire); border-color: var(--fire);" onclick="clearAllCustom()">🗑 Clear All</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importCustomBank(event)">
+      </div>
+    </div>
+
+    <div class="setup-footer">
+      <button class="btn-back" onclick="goTo('mode-screen')">← BACK TO MODES</button>
+    </div>
+  </div>
+
+  <!-- AUDIENCE WILDCARD OVERLAY -->
+  <div class="wildcard-overlay" id="wildcard-overlay">
+    <button class="wc-dismiss" onclick="closeWildcard()">✕ CANCEL</button>
+    <div class="wc-banner">★ AUDIENCE WILDCARD ★</div>
+    <div class="wc-title">CROWD ROUND</div>
+    <div class="wc-subtitle">THE PICNIC DECIDES</div>
+    <div class="wc-question" id="wc-question">—</div>
+
+    <div id="wc-phase-vote">
+      <div class="wc-instructions">
+        Host: Read the question. Count hands.<br>
+        <strong>If crowd is right →</strong> stage eats. <strong>If crowd is wrong →</strong> stage gets immunity next wing.
+      </div>
+      <div class="wc-verdict-buttons">
+        <button class="wc-verdict-btn crowd-whiff" onclick="revealWildcardAnswer()">REVEAL ANSWER →</button>
+      </div>
+    </div>
+
+    <div id="wc-phase-verdict" style="display:none;">
+      <div class="wc-answer-reveal" id="wc-answer">—</div>
+      <div class="wc-instructions" id="wc-answer-note" style="font-style:italic; color:#ccc;"></div>
+      <div class="wc-verdict-buttons">
+        <button class="wc-verdict-btn crowd-win" onclick="resolveWildcard('crowd-win')">CROWD GOT IT</button>
+        <button class="wc-verdict-btn crowd-whiff" onclick="resolveWildcard('crowd-whiff')">CROWD WHIFFED</button>
+      </div>
+    </div>
+
+    <div class="wc-counter" id="wc-counter">WILDCARDS USED: 0 / 3</div>
+  </div>
+
+</div>
+
+<script>
+// Format: { q: question, a: answer (canonical), accept: [alternate forms], cat: category, diff: 1-3, note: host note }
+// Categories: general, history, geography, science, popculture, music, movies, sports, food, business, weird
+// Difficulty: 1=easy, 2=medium, 3=hard
+window.QUESTIONS = [
+  // ===== GENERAL KNOWLEDGE (easy-medium) =====
+  { q: "How many continents are there?", a: "7", cat: "general", diff: 1, note: "Not 6, not 8. Seven." },
+  { q: "How many bones are in the adult human body?", a: "206", cat: "science", diff: 2, note: "Exactly 206. 'About 200' doesn't count." },
+  { q: "How many keys are on a standard piano?", a: "88", cat: "music", diff: 2, note: "52 white + 36 black = 88." },
+  { q: "How many sides does a stop sign have?", a: "8", accept: ["eight"], cat: "general", diff: 1, note: "Octagon." },
+  { q: "How many legs does a spider have?", a: "8", accept: ["eight"], cat: "science", diff: 1, note: "Not 6. That's an insect." },
+  { q: "How many hearts does an octopus have?", a: "3", accept: ["three"], cat: "science", diff: 2, note: "Three. Two for the gills, one for the body." },
+  { q: "How many planets are in our solar system?", a: "8", accept: ["eight"], cat: "science", diff: 1, note: "Eight since Pluto got demoted in 2006." },
+  { q: "What's the largest planet in our solar system?", a: "Jupiter", cat: "science", diff: 1, note: "Someone will say Saturn. They eat." },
+  { q: "What's the closest planet to the Sun?", a: "Mercury", cat: "science", diff: 1, note: "Not Venus. Mercury." },
+  { q: "What's the chemical symbol for gold?", a: "Au", cat: "science", diff: 2, note: "From Latin 'aurum.'" },
+  { q: "What's the chemical symbol for silver?", a: "Ag", cat: "science", diff: 2, note: "From Latin 'argentum.'" },
+  { q: "What gas do plants absorb from the atmosphere?", a: "Carbon dioxide", accept: ["CO2", "carbon dioxide"], cat: "science", diff: 1, note: "CO2 is fine." },
+  { q: "What's the hardest natural substance on Earth?", a: "Diamond", cat: "science", diff: 1, note: "Classic." },
+  { q: "What's the only mammal capable of true flight?", a: "Bat", accept: ["bats"], cat: "science", diff: 2, note: "Flying squirrels glide. They don't fly." },
+  { q: "What color is a polar bear's skin underneath its fur?", a: "Black", cat: "science", diff: 3, note: "Black skin, translucent fur. Fur only LOOKS white." },
+
+  // ===== GEOGRAPHY =====
+  { q: "What is the capital of Australia?", a: "Canberra", cat: "geography", diff: 2, note: "NOT Sydney. Half the room will say Sydney." },
+  { q: "What is the capital of Canada?", a: "Ottawa", cat: "geography", diff: 2, note: "NOT Toronto. Not Montreal." },
+  { q: "What is the capital of Brazil?", a: "Brasília", accept: ["brasilia"], cat: "geography", diff: 2, note: "NOT Rio. Not São Paulo." },
+  { q: "What is the capital of New York state?", a: "Albany", cat: "geography", diff: 2, note: "NOT New York City." },
+  { q: "What is the capital of California?", a: "Sacramento", cat: "geography", diff: 1, note: "Not LA. Not SF." },
+  { q: "What is the capital of Texas?", a: "Austin", cat: "geography", diff: 1, note: "Not Houston. Not Dallas." },
+  { q: "What is the capital of Florida?", a: "Tallahassee", cat: "geography", diff: 2, note: "Not Miami. Not Orlando." },
+  { q: "What is the capital of Russia?", a: "Moscow", cat: "geography", diff: 1, note: "Gimme." },
+  { q: "What is the capital of Japan?", a: "Tokyo", cat: "geography", diff: 1, note: "Gimme." },
+  { q: "What is the capital of Egypt?", a: "Cairo", cat: "geography", diff: 1, note: "Gimme." },
+  { q: "How many U.S. states share a border with Mexico?", a: "4", accept: ["four"], cat: "geography", diff: 2, note: "CA, AZ, NM, TX." },
+  { q: "How many U.S. states share a border with Canada?", a: "13", accept: ["thirteen"], cat: "geography", diff: 3, note: "WA, ID, MT, ND, MN, MI, OH, PA, NY, VT, NH, ME, AK. Yes, Alaska." },
+  { q: "What is the smallest country in the world?", a: "Vatican City", accept: ["the vatican", "vatican"], cat: "geography", diff: 2, note: "Not Monaco. About 109 acres." },
+  { q: "What is the largest country in the world by area?", a: "Russia", cat: "geography", diff: 1, note: "Gimme." },
+  { q: "What is the longest river in the world?", a: "Nile", accept: ["the nile", "nile river"], cat: "geography", diff: 2, note: "Accept Nile. Amazon is debated but Nile is still the standard answer." },
+  { q: "What is the deepest ocean in the world?", a: "Pacific", accept: ["pacific ocean"], cat: "geography", diff: 2, note: "Mariana Trench is in the Pacific." },
+  { q: "How many countries are in Africa?", a: "54", accept: ["fifty-four", "fifty four"], cat: "geography", diff: 3, note: "Sovereign states recognized by the UN." },
+  { q: "How many time zones does Russia span?", a: "11", accept: ["eleven"], cat: "geography", diff: 3, note: "Eleven. More than any other country." },
+  { q: "What's the tallest mountain in the world (above sea level)?", a: "Mount Everest", accept: ["everest"], cat: "geography", diff: 1, note: "29,032 feet." },
+  { q: "What desert covers most of northern Africa?", a: "Sahara", accept: ["sahara desert"], cat: "geography", diff: 1, note: "Sahara." },
+  { q: "What's the largest state in the U.S. by area?", a: "Alaska", cat: "geography", diff: 1, note: "Not Texas. Alaska is more than twice Texas." },
+  { q: "What's the smallest state in the U.S. by area?", a: "Rhode Island", cat: "geography", diff: 2, note: "Rhode Island." },
+  { q: "Which U.S. state has the most counties?", a: "Texas", cat: "geography", diff: 3, note: "254 counties." },
+  { q: "What is the capital of Spain?", a: "Madrid", cat: "geography", diff: 1, note: "Not Barcelona." },
+  { q: "What is the capital of Germany?", a: "Berlin", cat: "geography", diff: 1, note: "Gimme." },
+  { q: "What is the capital of Italy?", a: "Rome", cat: "geography", diff: 1, note: "Gimme." },
+  { q: "What ocean is the largest?", a: "Pacific", accept: ["pacific ocean"], cat: "geography", diff: 1, note: "Pacific." },
+  { q: "What continent is the Amazon rainforest on?", a: "South America", cat: "geography", diff: 1, note: "South America." },
+  { q: "What river runs through Paris?", a: "Seine", accept: ["the seine"], cat: "geography", diff: 2, note: "The Seine." },
+  { q: "What country has the most islands?", a: "Sweden", cat: "geography", diff: 3, note: "Around 267,000 islands. Wild." },
+
+  // ===== HISTORY =====
+  { q: "In what year did World War II end?", a: "1945", cat: "history", diff: 1, note: "Exact year only." },
+  { q: "In what year did World War I begin?", a: "1914", cat: "history", diff: 2, note: "Exact year." },
+  { q: "In what year did the Titanic sink?", a: "1912", cat: "history", diff: 2, note: "April 15, 1912." },
+  { q: "What year did the United States declare independence?", a: "1776", cat: "history", diff: 1, note: "Gimme." },
+  { q: "How many U.S. Presidents have been assassinated in office?", a: "4", accept: ["four"], cat: "history", diff: 2, note: "Lincoln, Garfield, McKinley, JFK." },
+  { q: "Who was the first President of the United States?", a: "George Washington", accept: ["washington"], cat: "history", diff: 1, note: "Gimme." },
+  { q: "Who was the President during the Civil War?", a: "Abraham Lincoln", accept: ["lincoln"], cat: "history", diff: 1, note: "Lincoln." },
+  { q: "What year did the Berlin Wall fall?", a: "1989", cat: "history", diff: 2, note: "November 9, 1989." },
+  { q: "What year did the first man walk on the moon?", a: "1969", cat: "history", diff: 2, note: "July 20, 1969." },
+  { q: "Who was the first man to walk on the moon?", a: "Neil Armstrong", accept: ["armstrong"], cat: "history", diff: 1, note: "Neil Armstrong." },
+  { q: "What country gifted the Statue of Liberty to the U.S.?", a: "France", cat: "history", diff: 1, note: "France." },
+  { q: "What year did Christopher Columbus reach the Americas?", a: "1492", cat: "history", diff: 1, note: "'Sailed the ocean blue...'" },
+  { q: "What year did the U.S. Civil War begin?", a: "1861", cat: "history", diff: 2, note: "1861. Fort Sumter." },
+  { q: "What year did the U.S. Civil War end?", a: "1865", cat: "history", diff: 2, note: "Appomattox." },
+  { q: "Who wrote the Declaration of Independence?", a: "Thomas Jefferson", accept: ["jefferson"], cat: "history", diff: 1, note: "Primary author." },
+  { q: "What empire was ruled by Julius Caesar?", a: "Roman Empire", accept: ["roman", "rome"], cat: "history", diff: 1, note: "Roman." },
+  { q: "What wall was built to keep out the Mongols?", a: "Great Wall of China", accept: ["great wall", "the great wall"], cat: "history", diff: 1, note: "Great Wall." },
+  { q: "What year did the Vietnam War end?", a: "1975", cat: "history", diff: 3, note: "Fall of Saigon." },
+  { q: "What ship did the Pilgrims sail to America on?", a: "Mayflower", accept: ["the mayflower"], cat: "history", diff: 1, note: "1620." },
+  { q: "What country was the first to land a satellite in orbit?", a: "Soviet Union", accept: ["russia", "ussr", "soviet union"], cat: "history", diff: 2, note: "Sputnik, 1957." },
+
+  // ===== POP CULTURE =====
+  { q: "What year did the first iPhone come out?", a: "2007", cat: "popculture", diff: 2, note: "June 2007." },
+  { q: "What company makes the iPhone?", a: "Apple", cat: "popculture", diff: 1, note: "Gimme." },
+  { q: "What social media platform was originally called 'thefacebook'?", a: "Facebook", cat: "popculture", diff: 1, note: "Gimme." },
+  { q: "Who founded Amazon?", a: "Jeff Bezos", accept: ["bezos"], cat: "business", diff: 1, note: "Bezos." },
+  { q: "Who founded Microsoft?", a: "Bill Gates", accept: ["gates", "bill gates and paul allen"], cat: "business", diff: 1, note: "Gates (with Paul Allen)." },
+  { q: "Who founded Tesla?", a: "Martin Eberhard", accept: ["eberhard", "martin eberhard and marc tarpenning"], cat: "business", diff: 3, note: "GOTCHA. Eberhard and Tarpenning founded Tesla. Musk joined later as investor/chairman." },
+  { q: "What does 'www' stand for in a web address?", a: "World Wide Web", cat: "popculture", diff: 1, note: "Gimme." },
+  { q: "What's the most-followed person on Instagram? (as of 2025)", a: "Cristiano Ronaldo", accept: ["ronaldo"], cat: "popculture", diff: 3, note: "Over 650M followers." },
+  { q: "What's the best-selling book of all time (excluding religious texts)?", a: "Don Quixote", cat: "popculture", diff: 3, note: "500M+ copies. Cervantes." },
+  { q: "What's the best-selling music album of all time?", a: "Thriller", accept: ["michael jackson thriller"], cat: "music", diff: 2, note: "Michael Jackson, 1982." },
+  { q: "What year was YouTube founded?", a: "2005", cat: "popculture", diff: 2, note: "February 2005." },
+  { q: "What year did Netflix launch its streaming service?", a: "2007", cat: "popculture", diff: 3, note: "Streaming started in 2007." },
+  { q: "What color is Mickey Mouse's shorts?", a: "Red", cat: "popculture", diff: 1, note: "Red shorts, yellow shoes." },
+  { q: "What is Batman's real name?", a: "Bruce Wayne", accept: ["wayne"], cat: "popculture", diff: 1, note: "Bruce Wayne." },
+  { q: "What is Superman's real name?", a: "Clark Kent", accept: ["kent", "kal-el"], cat: "popculture", diff: 1, note: "Clark Kent (Kal-El on Krypton)." },
+  { q: "Who lives at 4 Privet Drive?", a: "Harry Potter", accept: ["harry potter", "the dursleys"], cat: "popculture", diff: 2, note: "Harry Potter." },
+  { q: "What's the name of the toy cowboy in 'Toy Story'?", a: "Woody", cat: "movies", diff: 1, note: "Woody." },
+
+  // ===== MOVIES =====
+  { q: "Who directed the movie 'Jaws'?", a: "Steven Spielberg", accept: ["spielberg"], cat: "movies", diff: 2, note: "Spielberg, 1975." },
+  { q: "What movie won Best Picture at the 2023 Oscars?", a: "Everything Everywhere All at Once", cat: "movies", diff: 3, note: "2022 release, 2023 ceremony." },
+  { q: "What movie won Best Picture at the 2024 Oscars?", a: "Oppenheimer", cat: "movies", diff: 2, note: "Nolan's film." },
+  { q: "Who played Iron Man in the Marvel Cinematic Universe?", a: "Robert Downey Jr.", accept: ["robert downey jr", "rdj", "downey"], cat: "movies", diff: 1, note: "RDJ." },
+  { q: "What's the highest-grossing film of all time (unadjusted)?", a: "Avatar", cat: "movies", diff: 2, note: "The original Avatar, 2009." },
+  { q: "Who directed 'Pulp Fiction'?", a: "Quentin Tarantino", accept: ["tarantino"], cat: "movies", diff: 2, note: "Tarantino." },
+  { q: "In what movie does the line 'You had me at hello' appear?", a: "Jerry Maguire", cat: "movies", diff: 2, note: "1996, Tom Cruise." },
+  { q: "What's the name of the main character in 'Forrest Gump'?", a: "Forrest Gump", cat: "movies", diff: 1, note: "Gimme." },
+  { q: "Who played Jack in 'Titanic'?", a: "Leonardo DiCaprio", accept: ["dicaprio", "leo dicaprio"], cat: "movies", diff: 1, note: "Leo." },
+  { q: "What's the highest-grossing animated film of all time?", a: "Inside Out 2", cat: "movies", diff: 3, note: "As of 2024, Inside Out 2 took the crown." },
+  { q: "What year did 'The Godfather' come out?", a: "1972", cat: "movies", diff: 3, note: "1972. Accept only 1972." },
+  { q: "How many Harry Potter films are there (main series)?", a: "8", accept: ["eight"], cat: "movies", diff: 2, note: "Deathly Hallows was split into 2." },
+
+  // ===== MUSIC =====
+  { q: "How many strings does a standard guitar have?", a: "6", accept: ["six"], cat: "music", diff: 1, note: "Six." },
+  { q: "How many members were in The Beatles?", a: "4", accept: ["four"], cat: "music", diff: 1, note: "John, Paul, George, Ringo." },
+  { q: "Who sings 'Bohemian Rhapsody'?", a: "Queen", cat: "music", diff: 1, note: "Queen." },
+  { q: "What instrument did Louis Armstrong famously play?", a: "Trumpet", accept: ["the trumpet"], cat: "music", diff: 2, note: "Trumpet." },
+  { q: "Who is known as the 'Queen of Soul'?", a: "Aretha Franklin", accept: ["aretha"], cat: "music", diff: 2, note: "Aretha." },
+  { q: "Who wrote the musical 'Hamilton'?", a: "Lin-Manuel Miranda", accept: ["miranda", "lin manuel miranda"], cat: "music", diff: 2, note: "Lin-Manuel Miranda." },
+  { q: "What year did Michael Jackson die?", a: "2009", cat: "music", diff: 2, note: "June 25, 2009." },
+  { q: "How many Grammys has Beyoncé won (as of 2025)?", a: "35", accept: ["thirty-five", "thirty five"], cat: "music", diff: 3, note: "Most Grammys ever won by any artist." },
+  { q: "What does 'BPM' stand for in music?", a: "Beats per minute", accept: ["beats per minute"], cat: "music", diff: 2, note: "Beats per minute." },
+  { q: "How many notes are in an octave?", a: "8", accept: ["eight"], cat: "music", diff: 2, note: "Eight notes, seven intervals." },
+
+  // ===== SPORTS =====
+  { q: "How many players are on a basketball team on the court at once?", a: "5", accept: ["five"], cat: "sports", diff: 1, note: "Five per side." },
+  { q: "How many players are on a baseball team on the field at once?", a: "9", accept: ["nine"], cat: "sports", diff: 1, note: "Nine." },
+  { q: "How many players are on a soccer team on the field at once?", a: "11", accept: ["eleven"], cat: "sports", diff: 1, note: "Eleven per side." },
+  { q: "How many Super Bowls has Tom Brady won?", a: "7", accept: ["seven"], cat: "sports", diff: 2, note: "Seven. GOAT." },
+  { q: "How many NBA championships did Michael Jordan win?", a: "6", accept: ["six"], cat: "sports", diff: 2, note: "Six with the Bulls." },
+  { q: "What sport is Serena Williams known for?", a: "Tennis", cat: "sports", diff: 1, note: "Gimme." },
+  { q: "How many holes are played in a standard round of golf?", a: "18", accept: ["eighteen"], cat: "sports", diff: 1, note: "Eighteen." },
+  { q: "In what sport would you perform a slam dunk?", a: "Basketball", cat: "sports", diff: 1, note: "Gimme." },
+  { q: "What country invented the sport of judo?", a: "Japan", cat: "sports", diff: 2, note: "Japan." },
+  { q: "How often are the Summer Olympics held?", a: "Every 4 years", accept: ["4 years", "four years", "every four years"], cat: "sports", diff: 1, note: "Every four years." },
+  { q: "Who holds the record for most career home runs in MLB?", a: "Barry Bonds", accept: ["bonds"], cat: "sports", diff: 2, note: "762 home runs." },
+  { q: "In what city were the first modern Olympics held?", a: "Athens", cat: "sports", diff: 3, note: "Athens, 1896." },
+  { q: "How many points is a touchdown worth in football?", a: "6", accept: ["six"], cat: "sports", diff: 1, note: "Six (plus the extra point)." },
+  { q: "What's the diameter of a basketball hoop in inches?", a: "18", accept: ["eighteen"], cat: "sports", diff: 3, note: "18 inches." },
+
+  // ===== FOOD =====
+  { q: "What spice gives curry its yellow color?", a: "Turmeric", cat: "food", diff: 2, note: "Turmeric." },
+  { q: "What country is the origin of sushi?", a: "Japan", cat: "food", diff: 1, note: "Gimme." },
+  { q: "What grain is used to make traditional risotto?", a: "Rice", cat: "food", diff: 1, note: "Specifically arborio rice." },
+  { q: "What's the main ingredient in guacamole?", a: "Avocado", cat: "food", diff: 1, note: "Gimme." },
+  { q: "What herb is used to make traditional pesto?", a: "Basil", cat: "food", diff: 2, note: "Basil." },
+  { q: "What fruit is used to make wine?", a: "Grapes", accept: ["grape"], cat: "food", diff: 1, note: "Gimme." },
+  { q: "Which country consumes the most coffee per capita?", a: "Finland", cat: "food", diff: 3, note: "Finland. Not Italy. Not Brazil." },
+  { q: "What's the main ingredient in hummus?", a: "Chickpeas", accept: ["garbanzo beans", "chickpea"], cat: "food", diff: 1, note: "Chickpeas (garbanzo beans)." },
+  { q: "What kind of pastry is used in a traditional croissant?", a: "Puff pastry", accept: ["laminated dough", "puff pastry dough"], cat: "food", diff: 2, note: "Laminated/puff pastry." },
+  { q: "What spicy pepper is named after a Mexican state?", a: "Habanero", cat: "food", diff: 3, note: "From Havana? Nope, named because of Havana trade routes." },
+
+  // ===== BUSINESS / MONEY =====
+  { q: "What does IPO stand for?", a: "Initial Public Offering", cat: "business", diff: 2, note: "Initial Public Offering." },
+  { q: "What does GDP stand for?", a: "Gross Domestic Product", cat: "business", diff: 2, note: "Gross Domestic Product." },
+  { q: "What does the Fed stand for?", a: "Federal Reserve", accept: ["the federal reserve"], cat: "business", diff: 1, note: "Federal Reserve." },
+  { q: "What stock exchange is based on Wall Street?", a: "New York Stock Exchange", accept: ["nyse", "new york stock exchange"], cat: "business", diff: 1, note: "NYSE." },
+  { q: "What's the currency of Japan?", a: "Yen", accept: ["japanese yen"], cat: "business", diff: 1, note: "Yen." },
+  { q: "What's the currency of the United Kingdom?", a: "Pound", accept: ["pound sterling", "british pound", "gbp"], cat: "business", diff: 1, note: "Pound sterling." },
+  { q: "What cryptocurrency was created by Satoshi Nakamoto?", a: "Bitcoin", cat: "business", diff: 1, note: "Bitcoin, 2009." },
+  { q: "Who's on the U.S. $20 bill?", a: "Andrew Jackson", accept: ["jackson"], cat: "business", diff: 2, note: "Jackson." },
+  { q: "Who's on the U.S. $100 bill?", a: "Benjamin Franklin", accept: ["franklin", "ben franklin"], cat: "business", diff: 2, note: "Ben Franklin." },
+  { q: "What year did the 2008 financial crisis happen?", a: "2008", cat: "business", diff: 1, note: "Gimme. Year is in the name." },
+  { q: "What company's slogan is 'Just Do It'?", a: "Nike", cat: "business", diff: 1, note: "Nike." },
+  { q: "What's the world's largest retailer by revenue?", a: "Walmart", cat: "business", diff: 2, note: "Walmart." },
+  { q: "What does CEO stand for?", a: "Chief Executive Officer", cat: "business", diff: 1, note: "Chief Executive Officer." },
+  { q: "What tax form reports wages for U.S. employees?", a: "W-2", accept: ["w2"], cat: "business", diff: 2, note: "W-2." },
+  { q: "What tax form reports contractor income in the U.S.?", a: "1099", accept: ["form 1099", "1099-NEC"], cat: "business", diff: 2, note: "1099 (NEC or MISC)." },
+
+  // ===== WEIRD / TRIVIA =====
+  { q: "What is the only number spelled with its letters in alphabetical order?", a: "Forty", cat: "weird", diff: 3, note: "F-O-R-T-Y. No other number works." },
+  { q: "How many bones are babies born with?", a: "270", accept: ["about 270", "around 270", "approximately 270"], cat: "science", diff: 3, note: "About 270. They fuse into 206." },
+  { q: "What's the only country that borders both France and Spain?", a: "Andorra", cat: "geography", diff: 3, note: "Andorra. Also Monaco doesn't border Spain." },
+  { q: "What's the tallest mountain in the world measured base-to-peak?", a: "Mauna Kea", cat: "geography", diff: 3, note: "Mauna Kea beats Everest when you start from the ocean floor." },
+  { q: "What's the most venomous creature on Earth?", a: "Box jellyfish", accept: ["jellyfish", "sea wasp"], cat: "science", diff: 3, note: "Box jellyfish. Kills in minutes." },
+  { q: "How many lungs does a snake have?", a: "1", accept: ["one"], cat: "science", diff: 3, note: "Usually just one functional lung." },
+  { q: "How many stomachs does a cow have?", a: "4", accept: ["four"], cat: "science", diff: 2, note: "Four chambers: rumen, reticulum, omasum, abomasum." },
+  { q: "What's the only letter not used in any U.S. state name?", a: "Q", cat: "weird", diff: 3, note: "Q. Check them all — not one." },
+  { q: "How many Great Lakes are there?", a: "5", accept: ["five"], cat: "geography", diff: 1, note: "HOMES — Huron, Ontario, Michigan, Erie, Superior." },
+  { q: "What's the fastest land animal?", a: "Cheetah", cat: "science", diff: 1, note: "Cheetah." },
+  { q: "What's the largest mammal on Earth?", a: "Blue whale", accept: ["whale", "blue whale"], cat: "science", diff: 1, note: "Blue whale." },
+  { q: "How long is a marathon, in miles?", a: "26.2", accept: ["26.2 miles", "26"], cat: "sports", diff: 2, note: "26.2 miles (42.2 km)." },
+  { q: "What year did the Titanic begin and end its only voyage?", a: "1912", cat: "history", diff: 2, note: "Launched and sunk in 1912." },
+  { q: "What color do you get when you mix blue and yellow?", a: "Green", cat: "general", diff: 1, note: "Green." },
+  { q: "What's the square root of 144?", a: "12", accept: ["twelve"], cat: "general", diff: 1, note: "12." },
+  { q: "What's 15 × 15?", a: "225", cat: "general", diff: 2, note: "225." },
+  { q: "How many degrees are in a circle?", a: "360", cat: "general", diff: 1, note: "360." },
+  { q: "How many degrees are in a triangle's interior angles combined?", a: "180", cat: "general", diff: 1, note: "180." },
+  { q: "How many sides does a dodecagon have?", a: "12", accept: ["twelve"], cat: "general", diff: 2, note: "Dodeca = twelve." },
+  { q: "What Roman numeral represents 50?", a: "L", cat: "general", diff: 2, note: "L." },
+  { q: "What Roman numeral represents 1000?", a: "M", cat: "general", diff: 2, note: "M." },
+  { q: "What is 7 factorial (7!)?", a: "5040", cat: "general", diff: 3, note: "7 × 6 × 5 × 4 × 3 × 2 × 1 = 5040." },
+  { q: "What's the only U.S. state that begins with two vowels?", a: "Iowa", cat: "geography", diff: 3, note: "Iowa." },
+  { q: "What's the national animal of Scotland?", a: "Unicorn", cat: "weird", diff: 3, note: "Yes. The unicorn. Look it up." },
+  { q: "How many ribs does a typical adult human have?", a: "24", accept: ["twenty-four", "twenty four", "12 pairs"], cat: "science", diff: 2, note: "12 pairs = 24 ribs." },
+  { q: "What's the only mammal that can't jump?", a: "Elephant", cat: "science", diff: 3, note: "Elephants can't jump." },
+  { q: "What's the largest organ in the human body?", a: "Skin", accept: ["the skin"], cat: "science", diff: 2, note: "Skin. Bigger than anything inside." },
+  { q: "What percentage of the human body is water (approximately)?", a: "60%", accept: ["60", "sixty percent", "55-60%", "around 60"], cat: "science", diff: 2, note: "About 60% for adults." },
+  { q: "How many chambers are in the human heart?", a: "4", accept: ["four"], cat: "science", diff: 1, note: "Four. Two atria, two ventricles." },
+  { q: "What's the smallest bone in the human body?", a: "Stapes", accept: ["stirrup", "the stapes", "ear bone"], cat: "science", diff: 3, note: "Stapes (stirrup bone) in the ear." },
+
+  // ===== MORE GENERAL / FUN =====
+  { q: "What do you call a group of lions?", a: "Pride", accept: ["a pride", "pride of lions"], cat: "weird", diff: 1, note: "Pride." },
+  { q: "What do you call a group of crows?", a: "Murder", accept: ["a murder", "murder of crows"], cat: "weird", diff: 2, note: "Murder." },
+  { q: "What do you call a baby kangaroo?", a: "Joey", cat: "weird", diff: 1, note: "Joey." },
+  { q: "What do you call a baby swan?", a: "Cygnet", cat: "weird", diff: 3, note: "Cygnet." },
+  { q: "What's the national flower of Japan?", a: "Cherry blossom", accept: ["sakura", "cherry blossoms"], cat: "geography", diff: 2, note: "Cherry blossom (sakura)." },
+  { q: "What's the longest word in standard English dictionaries?", a: "Pneumonoultramicroscopicsilicovolcanoconiosis", cat: "weird", diff: 3, note: "45 letters. A lung disease." },
+  { q: "In what year did the Euro become an official currency?", a: "1999", cat: "business", diff: 3, note: "1999 (digital), 2002 (physical)." },
+  { q: "What does 'HTTP' stand for?", a: "Hypertext Transfer Protocol", cat: "business", diff: 2, note: "Hypertext Transfer Protocol." },
+  { q: "What does 'PDF' stand for?", a: "Portable Document Format", cat: "business", diff: 2, note: "Portable Document Format." },
+  { q: "Who painted the Mona Lisa?", a: "Leonardo da Vinci", accept: ["da vinci", "leonardo"], cat: "history", diff: 1, note: "Da Vinci." },
+  { q: "Who painted the Sistine Chapel ceiling?", a: "Michelangelo", cat: "history", diff: 2, note: "Michelangelo." },
+  { q: "Who wrote 'Romeo and Juliet'?", a: "William Shakespeare", accept: ["shakespeare"], cat: "history", diff: 1, note: "Shakespeare." },
+  { q: "Who wrote '1984'?", a: "George Orwell", accept: ["orwell"], cat: "popculture", diff: 2, note: "Orwell." },
+  { q: "Who invented the light bulb?", a: "Thomas Edison", accept: ["edison"], cat: "history", diff: 1, note: "Edison. (Though the story's complicated.)" },
+  { q: "Who invented the telephone?", a: "Alexander Graham Bell", accept: ["bell", "alexander graham bell"], cat: "history", diff: 1, note: "Bell." },
+  { q: "What famous Italian explorer reached the Americas in 1492?", a: "Christopher Columbus", accept: ["columbus"], cat: "history", diff: 1, note: "Columbus." },
+  { q: "What famous scientist developed the theory of general relativity?", a: "Albert Einstein", accept: ["einstein"], cat: "science", diff: 1, note: "Einstein." },
+  { q: "Who was the first woman to win a Nobel Prize?", a: "Marie Curie", accept: ["curie", "madame curie"], cat: "history", diff: 2, note: "Marie Curie, 1903." },
+  { q: "How many teeth does an adult human typically have?", a: "32", accept: ["thirty-two", "thirty two"], cat: "science", diff: 2, note: "32 (including wisdom teeth)." },
+  { q: "What's the most common blood type?", a: "O positive", accept: ["o+", "o", "type o"], cat: "science", diff: 3, note: "O positive is most common." },
+  { q: "What's the world's fastest fish?", a: "Sailfish", cat: "science", diff: 3, note: "Sailfish — up to 68 mph." },
+  { q: "How many minutes are in a day?", a: "1440", cat: "general", diff: 2, note: "24 × 60 = 1440." },
+  { q: "How many seconds are in an hour?", a: "3600", cat: "general", diff: 2, note: "60 × 60 = 3600." },
+  { q: "What's the official language of Brazil?", a: "Portuguese", cat: "geography", diff: 2, note: "Portuguese. NOT Spanish. Lots of people mess this up." },
+  { q: "What's the most spoken first language in the world?", a: "Mandarin", accept: ["mandarin chinese", "chinese"], cat: "geography", diff: 2, note: "Mandarin Chinese." },
+  { q: "How many moons does Mars have?", a: "2", accept: ["two"], cat: "science", diff: 2, note: "Two — Phobos and Deimos." },
+  { q: "How many moons does Jupiter have (confirmed, as of 2024)?", a: "95", accept: ["ninety-five", "over 90", "more than 90"], cat: "science", diff: 3, note: "95 confirmed moons. Number keeps going up." },
+  { q: "What planet is known as the 'Red Planet'?", a: "Mars", cat: "science", diff: 1, note: "Mars." },
+  { q: "What planet has the most rings?", a: "Saturn", cat: "science", diff: 1, note: "Saturn." },
+  { q: "How long is one lunar cycle (full moon to full moon), in days?", a: "29.5", accept: ["29", "30", "about 29", "about 30", "29.5 days"], cat: "science", diff: 3, note: "About 29.5 days." },
+  { q: "What element is number 1 on the periodic table?", a: "Hydrogen", cat: "science", diff: 1, note: "Hydrogen." },
+  { q: "What element does the symbol 'Fe' represent?", a: "Iron", cat: "science", diff: 2, note: "Iron (from Latin 'ferrum')." },
+  { q: "What's the boiling point of water in Fahrenheit?", a: "212", accept: ["212 degrees", "212°", "212 f"], cat: "science", diff: 1, note: "212°F." },
+  { q: "What's the freezing point of water in Fahrenheit?", a: "32", accept: ["32 degrees", "32°", "32 f"], cat: "science", diff: 1, note: "32°F." },
+  { q: "What's the freezing point of water in Celsius?", a: "0", accept: ["zero", "0 degrees", "0°"], cat: "science", diff: 1, note: "0°C." },
+  { q: "How many colors are in a rainbow?", a: "7", accept: ["seven"], cat: "general", diff: 1, note: "ROYGBIV." },
+  { q: "What planet is closest to Earth?", a: "Venus", cat: "science", diff: 2, note: "Venus on average, though Mercury gets closer at certain moments." },
+  { q: "What year did the Cold War end?", a: "1991", cat: "history", diff: 3, note: "1991 with the fall of the Soviet Union." },
+  { q: "What is the largest ocean on Earth?", a: "Pacific", accept: ["pacific ocean"], cat: "geography", diff: 1, note: "Pacific." },
+  { q: "What's the capital of South Korea?", a: "Seoul", cat: "geography", diff: 1, note: "Seoul." },
+  { q: "What's the capital of North Korea?", a: "Pyongyang", cat: "geography", diff: 2, note: "Pyongyang." },
+  { q: "What's the capital of Thailand?", a: "Bangkok", cat: "geography", diff: 1, note: "Bangkok." },
+  { q: "What's the capital of Saudi Arabia?", a: "Riyadh", cat: "geography", diff: 2, note: "Riyadh." },
+  { q: "What's the capital of Argentina?", a: "Buenos Aires", cat: "geography", diff: 1, note: "Buenos Aires." },
+
+  // ===== MORE SPORTS =====
+  { q: "What U.S. city has teams named the Cowboys, Mavericks, and Stars?", a: "Dallas", cat: "sports", diff: 2, note: "Dallas." },
+  { q: "How many rings on the Olympic flag?", a: "5", accept: ["five"], cat: "sports", diff: 1, note: "Five, one per continent." },
+  { q: "What year were the first modern Olympic Games held?", a: "1896", cat: "sports", diff: 3, note: "1896 in Athens." },
+  { q: "What's the only team to go undefeated in an NFL season and win the Super Bowl?", a: "1972 Miami Dolphins", accept: ["miami dolphins", "dolphins"], cat: "sports", diff: 3, note: "1972 Dolphins." },
+  { q: "In tennis, what's the term for zero points?", a: "Love", cat: "sports", diff: 1, note: "Love." },
+  { q: "What's the maximum break in snooker?", a: "147", cat: "sports", diff: 3, note: "147 — 15 reds, 15 blacks, all six colors." },
+
+  // ===== MORE POP CULTURE / MOVIES =====
+  { q: "What's the name of the coffee shop in 'Friends'?", a: "Central Perk", cat: "popculture", diff: 1, note: "Central Perk." },
+  { q: "What's the name of the school in Harry Potter?", a: "Hogwarts", cat: "popculture", diff: 1, note: "Hogwarts." },
+  { q: "In 'Breaking Bad,' what's Walter White's street name?", a: "Heisenberg", cat: "popculture", diff: 2, note: "Heisenberg." },
+  { q: "In 'The Office' (US), what paper company does Michael Scott work for?", a: "Dunder Mifflin", cat: "popculture", diff: 1, note: "Dunder Mifflin." },
+  { q: "What's the name of the kingdom in 'Frozen'?", a: "Arendelle", cat: "movies", diff: 2, note: "Arendelle." },
+  { q: "Who wrote 'The Lord of the Rings'?", a: "J.R.R. Tolkien", accept: ["tolkien", "jrr tolkien"], cat: "popculture", diff: 1, note: "Tolkien." },
+  { q: "Who plays Walter White in 'Breaking Bad'?", a: "Bryan Cranston", accept: ["cranston"], cat: "popculture", diff: 2, note: "Bryan Cranston." },
+  { q: "What's the name of Rick's grandson in 'Rick and Morty'?", a: "Morty", cat: "popculture", diff: 1, note: "Morty Smith." },
+  { q: "In what year did 'The Simpsons' first air on TV?", a: "1989", cat: "popculture", diff: 3, note: "December 1989." },
+  { q: "Who played the Joker in 'The Dark Knight' (2008)?", a: "Heath Ledger", accept: ["ledger"], cat: "movies", diff: 2, note: "Heath Ledger." },
+
+  // ===== BONUS / ODDBALLS =====
+  { q: "What's the largest living bird?", a: "Ostrich", cat: "science", diff: 2, note: "Ostrich." },
+  { q: "What's the national sport of Japan?", a: "Sumo wrestling", accept: ["sumo"], cat: "sports", diff: 3, note: "Sumo." },
+  { q: "How many zeros are in one million?", a: "6", accept: ["six"], cat: "general", diff: 1, note: "Six." },
+  { q: "How many zeros are in one billion (short scale)?", a: "9", accept: ["nine"], cat: "general", diff: 2, note: "Nine — thousand million." },
+  { q: "What does 'NASA' stand for?", a: "National Aeronautics and Space Administration", cat: "science", diff: 2, note: "NASA — National Aeronautics and Space Administration." },
+  { q: "What does 'FBI' stand for?", a: "Federal Bureau of Investigation", cat: "business", diff: 1, note: "Federal Bureau of Investigation." },
+  { q: "What does 'DNA' stand for?", a: "Deoxyribonucleic acid", cat: "science", diff: 3, note: "Deoxyribonucleic acid." },
+  { q: "Who is the current Pope (as of 2025)?", a: "Pope Francis", accept: ["francis"], cat: "popculture", diff: 2, note: "Pope Francis since 2013." },
+  { q: "What's the longest reigning British monarch in history?", a: "Queen Elizabeth II", accept: ["elizabeth ii", "elizabeth the second", "queen elizabeth"], cat: "history", diff: 2, note: "70 years, 214 days." },
+  { q: "Who is the current British monarch (as of 2025)?", a: "King Charles III", accept: ["charles iii", "charles", "king charles"], cat: "history", diff: 2, note: "Charles III since 2022." },
+  { q: "What year did COVID-19 become a global pandemic?", a: "2020", cat: "history", diff: 1, note: "2020. WHO declared March 11, 2020." },
+  { q: "How many weeks are in a year?", a: "52", accept: ["fifty-two", "fifty two"], cat: "general", diff: 1, note: "52." },
+  { q: "How many days are in a leap year?", a: "366", cat: "general", diff: 1, note: "366." },
+  { q: "How many sides does a hexagon have?", a: "6", accept: ["six"], cat: "general", diff: 1, note: "Six." },
+  { q: "How many sides does an octagon have?", a: "8", accept: ["eight"], cat: "general", diff: 1, note: "Eight." },
+  { q: "What's the name of the longest river in the U.S.?", a: "Missouri River", accept: ["missouri"], cat: "geography", diff: 3, note: "Missouri. Not the Mississippi." }
+];
+
+</script>
+<script>
+// =============================================================================
+// GAME MODES
+// =============================================================================
+const MODES = [
+  { id: 'classic',   name: 'Classic',         desc: "Host asks the question. Everyone answers. Wrong answers eat the wing. Right answers abstain and look smug.", tag: "THE STANDARD" },
+  { id: 'standing',  name: 'Last One Standing', desc: "Everyone plays every wing. Three wrong answers and you're eliminated. Last person not out wins.", tag: "ELIMINATION" },
+  { id: 'teams',     name: 'Team vs Team',    desc: "Two teams, one captain answers per wing (rotating). Wrong team eats. First team to 5 wings eaten loses.", tag: "TEAM MODE" },
+  { id: 'double',    name: 'Double or Nothing', desc: "Before each question, any player can double down. Right = skip next wing too. Wrong = eat this AND the next.", tag: "HIGH STAKES" },
+  { id: 'spotlight', name: "Host's Choice",   desc: "Host picks one person per wing to answer. Right = immunity next round. Wrong = eat. Strategic targeting.", tag: "TACTICAL" },
+  { id: 'gauntlet',  name: 'The Gauntlet',    desc: "One person in the hot seat for all wings. Count wings eaten, final score = correct answers minus wings.", tag: "SOLO" }
+];
+
+// =============================================================================
+// STATE
+// =============================================================================
+const state = {
+  mode: 'classic',
+  wingCount: 10,
+  difficulty: 'mixed',
+  category: 'all',
+  players: [],         // { name, team?, wings, correct, strikes, eliminated, immuneNext, doubledNext, skipNext }
+  wingList: [],        // selected questions for this game
+  currentWing: 0,
+  phase: 'question',
+  verdicts: {},        // per-player verdict for current wing
+  spotlightIdx: null,  // for spotlight/teams mode
+  teamRotation: { gold: 0, fire: 0 }, // which player in team is up
+  teamVerdict: null,   // 'correct' | 'wrong' for teams mode
+  doublersNext: new Set() // players who doubled on prior wing — must also eat current if wrong
+};
+
+// WING SAUCES — escalating heat (same 10, repeated or extended for longer games)
+const SAUCES = [
+  { sauce: "Chili Maple",        shu: "1,500" },
+  { sauce: "Pineapple Habanero", shu: "3,000" },
+  { sauce: "Los Calientes Verde",shu: "15,600" },
+  { sauce: "Hot Nashville",      shu: "25,000" },
+  { sauce: "Pico Rico",          shu: "37,800" },
+  { sauce: "Turmeric Bomb",      shu: "104,000" },
+  { sauce: "Los Calientes Rojo", shu: "156,000" },
+  { sauce: "Da Bomb",            shu: "135,600" },
+  { sauce: "Mad Dog 357",        shu: "357,000" },
+  { sauce: "THE LAST DAB",       shu: "2,000,000+" }
+];
+
+function getSauceForWing(wingIdx, total) {
+  // Map wing index to sauce index — scales across any total
+  // Always end with Last Dab on final wing
+  if (wingIdx === total - 1) return SAUCES[9]; // Last Dab on finale
+  if (total <= 10) return SAUCES[Math.min(wingIdx, 8)];
+  // For >10 wings, spread the first 9 sauces across pre-finale wings
+  const progress = wingIdx / (total - 1);
+  return SAUCES[Math.min(Math.floor(progress * 9), 8)];
+}
+
+// =============================================================================
+// NAVIGATION
+// =============================================================================
+function goTo(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+  if (screenId === 'mode-screen') {
+    renderModes();
+    updateCustomToggleVisibility();
+  }
+  if (screenId === 'setup-screen') updateSetupHeader();
+  if (screenId === 'editor-screen') renderCustomList();
+  document.getElementById(screenId).scrollTop = 0;
+}
+
+function updateCustomToggleVisibility() {
+  const row = document.getElementById('custom-toggle-row');
+  if (!row) return;
+  const bank = loadCustomBank();
+  if (bank.length > 0) {
+    row.style.display = 'flex';
+    const label = row.querySelector('label');
+    label.textContent = `INCLUDE MY ${bank.length} CUSTOM QUESTION${bank.length === 1 ? '' : 'S'}`;
+  } else {
+    row.style.display = 'none';
+  }
+}
+
+// =============================================================================
+// MODE SELECT
+// =============================================================================
+function renderModes() {
+  const grid = document.getElementById('mode-grid');
+  grid.innerHTML = MODES.map(m => `
+    <div class="mode-card ${state.mode === m.id ? 'selected' : ''}" onclick="selectMode('${m.id}')">
+      <div class="mode-name">${m.name}</div>
+      <div class="mode-desc">${m.desc}</div>
+      <div class="mode-tag">${m.tag}</div>
+    </div>
+  `).join('');
+}
+
+function selectMode(modeId) {
+  state.mode = modeId;
+  renderModes();
+}
+
+// Option pill handlers
+document.getElementById('wings-picker').addEventListener('click', e => {
+  if (e.target.classList.contains('pill')) {
+    document.querySelectorAll('#wings-picker .pill').forEach(p => p.classList.remove('active'));
+    e.target.classList.add('active');
+    state.wingCount = parseInt(e.target.dataset.wings);
+  }
+});
+document.getElementById('diff-picker').addEventListener('click', e => {
+  if (e.target.classList.contains('pill')) {
+    document.querySelectorAll('#diff-picker .pill').forEach(p => p.classList.remove('active'));
+    e.target.classList.add('active');
+    state.difficulty = e.target.dataset.diff;
+  }
+});
+document.getElementById('cat-picker').addEventListener('click', e => {
+  if (e.target.classList.contains('pill')) {
+    document.querySelectorAll('#cat-picker .pill').forEach(p => p.classList.remove('active'));
+    e.target.classList.add('active');
+    state.category = e.target.dataset.cat;
+  }
+});
+
+// =============================================================================
+// SETUP — PLAYERS
+// =============================================================================
+function updateSetupHeader() {
+  const mode = MODES.find(m => m.id === state.mode);
+  const sub = document.getElementById('setup-sub-text');
+  const teamSelect = document.getElementById('team-select');
+
+  if (state.mode === 'teams') {
+    sub.textContent = 'BUILD YOUR TEAMS';
+    teamSelect.style.display = 'block';
+  } else if (state.mode === 'gauntlet') {
+    sub.textContent = 'ONE PERSON. ALL WINGS. GOOD LUCK.';
+    teamSelect.style.display = 'none';
+  } else {
+    sub.textContent = `${mode.name.toUpperCase()} — WHO'S IN?`;
+    teamSelect.style.display = 'none';
+  }
+  renderPlayers();
+}
+
+function addPlayer() {
+  const input = document.getElementById('player-input');
+  const name = input.value.trim();
+  if (!name) return;
+  if (state.players.find(p => p.name.toLowerCase() === name.toLowerCase())) {
+    input.value = ''; return;
+  }
+  const player = { name, wings: 0, correct: 0, strikes: 0, eliminated: false, immuneNext: false, skipNext: false };
+  if (state.mode === 'teams') {
+    player.team = document.getElementById('team-select').value;
+  }
+  state.players.push(player);
+  input.value = '';
+  renderPlayers();
+}
+
+function removePlayer(idx) {
+  state.players.splice(idx, 1);
+  renderPlayers();
+}
+
+function renderPlayers() {
+  const list = document.getElementById('player-list');
+  list.innerHTML = state.players.map((p, i) => `
+    <div class="player-chip ${p.team ? 'team-' + p.team : ''}">
+      <span>
+        <span class="name">${escapeHtml(p.name)}</span>
+        ${p.team ? `<span class="team-badge">TEAM ${p.team.toUpperCase()}</span>` : ''}
+      </span>
+      <button class="remove" onclick="removePlayer(${i})">REMOVE</button>
+    </div>
+  `).join('');
+
+  const btn = document.getElementById('start-show-btn');
+  // Validation per mode
+  if (state.mode === 'gauntlet') {
+    btn.disabled = state.players.length !== 1;
+    btn.textContent = state.players.length === 1 ? 'ROLL CAMERA →' : `ADD ${1 - state.players.length} PLAYER`;
+  } else if (state.mode === 'teams') {
+    const goldCount = state.players.filter(p => p.team === 'gold').length;
+    const fireCount = state.players.filter(p => p.team === 'fire').length;
+    const valid = goldCount >= 1 && fireCount >= 1;
+    btn.disabled = !valid;
+    btn.textContent = valid ? 'ROLL CAMERA →' : 'NEED 1+ PER TEAM';
+  } else {
+    btn.disabled = state.players.length < 2;
+    btn.textContent = state.players.length < 2 ? `ADD ${2 - state.players.length} MORE` : 'ROLL CAMERA →';
+  }
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// =============================================================================
+// QUESTION SELECTION
+// =============================================================================
+function buildWingList() {
+  const customBank = loadCustomBank();
+  const includeCustomEl = document.getElementById('include-custom');
+  const includeCustom = includeCustomEl ? includeCustomEl.checked : true;
+  const fullBank = includeCustom && customBank.length > 0
+    ? QUESTIONS.concat(customBank)
+    : QUESTIONS;
+
+  let pool = fullBank.slice();
+
+  // Category filter
+  if (state.category !== 'all') {
+    pool = pool.filter(q => q.cat === state.category);
+  }
+
+  // Difficulty filter
+  if (state.difficulty !== 'mixed') {
+    const d = parseInt(state.difficulty);
+    pool = pool.filter(q => q.diff === d);
+  }
+
+  // Shuffle
+  pool.sort(() => Math.random() - 0.5);
+
+  // Take the count we need — if pool smaller, loosen filters
+  if (pool.length < state.wingCount) {
+    pool = fullBank.slice();
+    if (state.difficulty !== 'mixed') {
+      pool = pool.filter(q => q.diff === parseInt(state.difficulty));
+    }
+    pool.sort(() => Math.random() - 0.5);
+  }
+
+  state.wingList = pool.slice(0, state.wingCount);
+}
+
+// =============================================================================
+// GAME START
+// =============================================================================
+function startShow() {
+  buildWingList();
+  if (state.wingList.length < state.wingCount) {
+    alert(`Only ${state.wingList.length} questions match your filters. Loosen category or difficulty.`);
+    return;
+  }
+  state.currentWing = 0;
+  state.doublersNext = new Set();
+  goTo('game-screen');
+  loadWing();
+}
+
+function loadWing() {
+  const q = state.wingList[state.currentWing];
+  const sauce = getSauceForWing(state.currentWing, state.wingCount);
+  const isFinal = state.currentWing === state.wingCount - 1;
+
+  document.getElementById('wing-num').textContent = String(state.currentWing + 1).padStart(2, '0');
+  document.getElementById('wing-num').classList.toggle('final', isFinal);
+  document.getElementById('sauce-label').textContent = sauce.sauce.toUpperCase();
+  document.getElementById('shu-chip').textContent = sauce.shu + " SHU";
+  document.getElementById('cat-chip').textContent = q.cat.toUpperCase();
+
+  const diffChip = document.getElementById('diff-chip');
+  diffChip.className = 'diff-chip diff-' + q.diff;
+  diffChip.textContent = ['', 'EASY', 'MEDIUM', 'HARD'][q.diff];
+
+  document.getElementById('q-text').textContent = q.q;
+  document.getElementById('answer-text').textContent = q.a;
+  document.getElementById('answer-accept').textContent = q.accept ? `Also accept: ${q.accept.join(', ')}` : '';
+  document.getElementById('answer-note').textContent = q.note || '';
+
+  // Reset verdicts
+  state.verdicts = {};
+  state.players.forEach((p, i) => {
+    if (!p.eliminated) state.verdicts[i] = null;
+  });
+
+  // Handle mode-specific logic
+  handleModeQuestionStart();
+
+  setPhase('question');
+}
+
+function handleModeQuestionStart() {
+  const otsBlock = document.getElementById('on-the-spot-block');
+  const otsName = document.getElementById('on-the-spot-name');
+  otsBlock.style.display = 'none';
+
+  if (state.mode === 'spotlight') {
+    // Host picks one — default: cycle through eligible (not immune)
+    const eligible = state.players.filter(p => !p.eliminated && !p.immuneNext);
+    const pool = eligible.length > 0 ? eligible : state.players.filter(p => !p.eliminated);
+    state.spotlightIdx = state.players.indexOf(pool[state.currentWing % pool.length]);
+    otsBlock.style.display = 'block';
+    otsName.textContent = state.players[state.spotlightIdx].name;
+    // Clear immunity flags for everyone this round
+    state.players.forEach(p => p.immuneNext = false);
+  } else if (state.mode === 'teams') {
+    // Pick one player from each team rotating
+    const goldPlayers = state.players.filter(p => p.team === 'gold');
+    const firePlayers = state.players.filter(p => p.team === 'fire');
+    const goldUp = goldPlayers[state.teamRotation.gold % goldPlayers.length];
+    const fireUp = firePlayers[state.teamRotation.fire % firePlayers.length];
+    otsBlock.style.display = 'block';
+    otsName.innerHTML = `<span style="color: var(--gold-bright);">★ ${goldUp.name} ★</span>  <span style="color:#555;">VS</span>  <span style="color: var(--fire-bright);">★ ${fireUp.name} ★</span>`;
+  } else if (state.mode === 'double') {
+    // Show double-down offer overlay
+    showDoubleOverlay();
+  } else if (state.mode === 'gauntlet') {
+    otsBlock.style.display = 'block';
+    otsName.textContent = state.players[0].name;
+  }
+
+  // Apply "skip this wing" for doublers who won last round
+  state.players.forEach((p, i) => {
+    if (p.skipNext) {
+      p.skipNext = false;
+      state.verdicts[i] = 'immune'; // Special verdict — don't tap
+    }
+  });
+}
+
+// =============================================================================
+// DOUBLE-OR-NOTHING OVERLAY
+// =============================================================================
+let pendingDoublers = new Set();
+function showDoubleOverlay() {
+  const overlay = document.getElementById('double-overlay');
+  const picker = document.getElementById('double-picker');
+  pendingDoublers = new Set();
+  picker.innerHTML = state.players.filter(p => !p.eliminated).map((p, i) => {
+    const idx = state.players.indexOf(p);
+    return `<button onclick="toggleDoubler(${idx}, this)">${escapeHtml(p.name)}</button>`;
+  }).join('');
+  overlay.style.display = 'flex';
+}
+function toggleDoubler(idx, btn) {
+  if (pendingDoublers.has(idx)) {
+    pendingDoublers.delete(idx);
+    btn.classList.remove('selected');
+  } else {
+    pendingDoublers.add(idx);
+    btn.classList.add('selected');
+  }
+}
+function cancelDouble() {
+  pendingDoublers = new Set();
+  document.getElementById('double-overlay').style.display = 'none';
+}
+function confirmDouble() {
+  state.doublersThisRound = new Set(pendingDoublers);
+  document.getElementById('double-overlay').style.display = 'none';
+}
+
+// =============================================================================
+// PHASE CONTROL
+// =============================================================================
+function setPhase(phase) {
+  state.phase = phase;
+  document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+  document.getElementById(`phase-${phase}`).classList.add('active');
+
+  const nextBtn = document.getElementById('btn-next');
+  const prevBtn = document.getElementById('btn-prev');
+
+  if (phase === 'question') {
+    nextBtn.textContent = 'REVEAL ANSWER →';
+    prevBtn.textContent = state.currentWing > 0 ? '← PREV WING' : '← BACK';
+  } else if (phase === 'answer') {
+    nextBtn.textContent = 'WHO GOT IT? →';
+    prevBtn.textContent = '← HIDE ANSWER';
+  } else if (phase === 'verdict') {
+    renderVerdicts();
+    prevBtn.textContent = '← BACK';
+    const isFinal = state.currentWing === state.wingCount - 1;
+    nextBtn.textContent = isFinal ? 'END THE SHOW →' : 'NEXT WING →';
+  }
+}
+
+function phaseNext() {
+  if (state.phase === 'question') setPhase('answer');
+  else if (state.phase === 'answer') setPhase('verdict');
+  else if (state.phase === 'verdict') commitAndAdvance();
+}
+
+function phasePrev() {
+  if (state.phase === 'question') {
+    if (state.currentWing > 0) { state.currentWing -= 1; loadWing(); }
+    else goTo('setup-screen');
+  } else if (state.phase === 'answer') setPhase('question');
+  else if (state.phase === 'verdict') setPhase('answer');
+}
+
+// =============================================================================
+// VERDICTS
+// =============================================================================
+function renderVerdicts() {
+  const grid = document.getElementById('player-grid');
+  const label = document.getElementById('verdict-label');
+  const teamBlock = document.getElementById('team-summary-block');
+
+  if (state.mode === 'teams') {
+    label.textContent = "TAP THE TEAM CAPTAIN WHO ANSWERED";
+    teamBlock.style.display = 'block';
+    renderTeamSummary();
+    const goldPlayers = state.players.filter(p => p.team === 'gold');
+    const firePlayers = state.players.filter(p => p.team === 'fire');
+    const goldUp = goldPlayers[state.teamRotation.gold % goldPlayers.length];
+    const fireUp = firePlayers[state.teamRotation.fire % firePlayers.length];
+    const captains = [goldUp, fireUp];
+    grid.innerHTML = captains.map(p => {
+      const idx = state.players.indexOf(p);
+      const v = state.verdicts[idx];
+      let statusText = "TAP TO MARK";
+      let cls = "";
+      if (v === 'correct') { statusText = "SAFE"; cls = "correct"; }
+      if (v === 'wrong')   { statusText = "TEAM EATS"; cls = "wrong"; }
+      return `<div class="player-verdict team-${p.team} ${cls}" onclick="cycleVerdict(${idx})">
+        <div class="pv-name">${escapeHtml(p.name)}</div>
+        <div class="pv-strikes">${p.team === 'gold' ? '★ TEAM GOLD' : '★ TEAM FIRE'}</div>
+        <div class="pv-status">${statusText}</div>
+      </div>`;
+    }).join('');
+    return;
+  }
+
+  if (state.mode === 'spotlight') {
+    label.textContent = "DID THEY GET IT?";
+    teamBlock.style.display = 'none';
+    const p = state.players[state.spotlightIdx];
+    const idx = state.spotlightIdx;
+    const v = state.verdicts[idx];
+    let statusText = "TAP TO MARK";
+    let cls = "";
+    if (v === 'correct') { statusText = "SAFE + IMMUNE NEXT"; cls = "correct"; }
+    if (v === 'wrong')   { statusText = "EATS THE WING"; cls = "wrong"; }
+    grid.innerHTML = `<div class="player-verdict ${cls}" onclick="cycleVerdict(${idx})" style="max-width:400px;margin:0 auto;">
+      <div class="pv-name">${escapeHtml(p.name)}</div>
+      <div class="pv-status">${statusText}</div>
+    </div>`;
+    return;
+  }
+
+  if (state.mode === 'gauntlet') {
+    label.textContent = "DID THEY GET IT?";
+    teamBlock.style.display = 'none';
+    const p = state.players[0];
+    const idx = 0;
+    const v = state.verdicts[idx];
+    let statusText = "TAP TO MARK";
+    let cls = "";
+    if (v === 'correct') { statusText = "SAFE"; cls = "correct"; }
+    if (v === 'wrong')   { statusText = "EATS THE WING"; cls = "wrong"; }
+    grid.innerHTML = `<div class="player-verdict ${cls}" onclick="cycleVerdict(${idx})" style="max-width:400px;margin:0 auto;">
+      <div class="pv-name">${escapeHtml(p.name)}</div>
+      <div class="pv-status">${statusText}</div>
+    </div>`;
+    return;
+  }
+
+  // CLASSIC, STANDING, DOUBLE modes
+  if (state.mode === 'standing') {
+    label.textContent = "TAP EACH NAME — 3 STRIKES AND YOU'RE OUT";
+  } else if (state.mode === 'double') {
+    label.textContent = "DOUBLERS EAT TWICE IF WRONG";
+  } else {
+    label.textContent = "TAP EACH NAME — WRONG ANSWERS EAT THE WING";
+  }
+  teamBlock.style.display = 'none';
+
+  grid.innerHTML = state.players.map((p, i) => {
+    if (p.eliminated) {
+      return `<div class="player-verdict eliminated">
+        <div class="pv-name">${escapeHtml(p.name)}</div>
+        <div class="pv-status">ELIMINATED</div>
+      </div>`;
+    }
+    const v = state.verdicts[i];
+    const isDoubler = state.doublersThisRound && state.doublersThisRound.has(i);
+    const strikes = state.mode === 'standing' ? p.strikes : 0;
+    let statusText = "TAP TO MARK";
+    let cls = "";
+    if (v === 'correct') { statusText = "SAFE"; cls = "correct"; }
+    if (v === 'wrong')   { statusText = isDoubler ? "EATS × 2" : "EATS THE WING"; cls = "wrong"; }
+    if (v === 'immune')  { statusText = "IMMUNE (DOUBLED)"; cls = "correct"; }
+    if (isDoubler && !v) cls = "doubled";
+    return `<div class="player-verdict ${cls}" onclick="cycleVerdict(${i})">
+      <div class="pv-name">${escapeHtml(p.name)}</div>
+      <div class="pv-strikes">${state.mode === 'standing' ? '🔥'.repeat(strikes) : ''}</div>
+      <div class="pv-status">${statusText}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderTeamSummary() {
+  const goldPlayers = state.players.filter(p => p.team === 'gold');
+  const firePlayers = state.players.filter(p => p.team === 'fire');
+  const goldWings = goldPlayers.reduce((s, p) => s + p.wings, 0);
+  const fireWings = firePlayers.reduce((s, p) => s + p.wings, 0);
+  document.getElementById('team-summary').innerHTML = `
+    <div class="team-box team-gold">
+      <div class="team-box-name">TEAM GOLD</div>
+      <div class="team-box-stat">🔥 ${goldWings}</div>
+    </div>
+    <div class="team-box team-fire">
+      <div class="team-box-name">TEAM FIRE</div>
+      <div class="team-box-stat">🔥 ${fireWings}</div>
+    </div>
+  `;
+}
+
+function cycleVerdict(idx) {
+  if (state.verdicts[idx] === 'immune') return; // locked from double-down
+  const current = state.verdicts[idx];
+  if (current === null || current === undefined) state.verdicts[idx] = 'correct';
+  else if (current === 'correct') state.verdicts[idx] = 'wrong';
+  else state.verdicts[idx] = null;
+  renderVerdicts();
+}
+
+// =============================================================================
+// COMMIT & ADVANCE
+// =============================================================================
+function commitAndAdvance() {
+  // Write verdicts to player stats
+  Object.entries(state.verdicts).forEach(([idxStr, v]) => {
+    const idx = parseInt(idxStr);
+    const p = state.players[idx];
+    if (v === 'correct') {
+      p.correct += 1;
+      if (state.mode === 'spotlight') p.immuneNext = true;
+      if (state.mode === 'double' && state.doublersThisRound && state.doublersThisRound.has(idx)) {
+        p.skipNext = true; // skip next wing
+      }
+    } else if (v === 'wrong') {
+      p.wings += 1;
+      if (state.mode === 'standing') {
+        p.strikes += 1;
+        if (p.strikes >= 3) p.eliminated = true;
+      }
+      if (state.mode === 'double' && state.doublersThisRound && state.doublersThisRound.has(idx)) {
+        // Wrong doubler eats a second wing (simulate by logging extra)
+        p.wings += 1;
+      }
+    }
+  });
+
+  // Handle team mode — team-wide wings
+  if (state.mode === 'teams') {
+    const goldPlayers = state.players.filter(p => p.team === 'gold');
+    const firePlayers = state.players.filter(p => p.team === 'fire');
+    const goldUp = goldPlayers[state.teamRotation.gold % goldPlayers.length];
+    const fireUp = firePlayers[state.teamRotation.fire % firePlayers.length];
+    const goldIdx = state.players.indexOf(goldUp);
+    const fireIdx = state.players.indexOf(fireUp);
+    // The team whose captain was wrong — every member eats
+    if (state.verdicts[goldIdx] === 'wrong') {
+      goldPlayers.forEach(p => { if (p !== goldUp) p.wings += 1; }); // captain already +1 above
+    }
+    if (state.verdicts[fireIdx] === 'wrong') {
+      firePlayers.forEach(p => { if (p !== fireUp) p.wings += 1; });
+    }
+    // Rotate captains
+    state.teamRotation.gold += 1;
+    state.teamRotation.fire += 1;
+  }
+
+  state.doublersThisRound = new Set();
+
+  // Check end conditions
+  if (state.mode === 'standing') {
+    const alive = state.players.filter(p => !p.eliminated);
+    if (alive.length <= 1) { showFinale(); return; }
+  }
+  if (state.mode === 'teams') {
+    const goldWings = state.players.filter(p => p.team === 'gold').reduce((s, p) => s + p.wings, 0);
+    const fireWings = state.players.filter(p => p.team === 'fire').reduce((s, p) => s + p.wings, 0);
+    if (goldWings >= 5 || fireWings >= 5) { showFinale(); return; }
+  }
+
+  if (state.currentWing === state.wingCount - 1) {
+    showFinale();
+  } else {
+    state.currentWing += 1;
+    loadWing();
+  }
+}
+
+// =============================================================================
+// SKIP QUESTION
+// =============================================================================
+function skipQuestion() {
+  if (!confirm('Skip this question and swap in a new one?')) return;
+  // Pull a new question of same difficulty/category from unused pool
+  const usedQs = new Set(state.wingList.map(q => q.q));
+  let pool = QUESTIONS.filter(q => !usedQs.has(q.q));
+  if (state.category !== 'all') pool = pool.filter(q => q.cat === state.category);
+  if (state.difficulty !== 'mixed') pool = pool.filter(q => q.diff === parseInt(state.difficulty));
+  if (pool.length === 0) pool = QUESTIONS.filter(q => !usedQs.has(q.q));
+  if (pool.length === 0) { alert('No more fresh questions available.'); return; }
+  const newQ = pool[Math.floor(Math.random() * pool.length)];
+  state.wingList[state.currentWing] = newQ;
+  loadWing();
+}
+
+// =============================================================================
+// SCOREBOARD
+// =============================================================================
+function toggleScoreboard() {
+  const sb = document.getElementById('scoreboard');
+  sb.classList.toggle('open');
+  if (sb.classList.contains('open')) renderScoreboard();
+}
+
+function renderScoreboard() {
+  const list = document.getElementById('score-list');
+  if (state.mode === 'teams') {
+    const goldPlayers = state.players.filter(p => p.team === 'gold');
+    const firePlayers = state.players.filter(p => p.team === 'fire');
+    const goldWings = goldPlayers.reduce((s, p) => s + p.wings, 0);
+    const fireWings = firePlayers.reduce((s, p) => s + p.wings, 0);
+    list.innerHTML = `
+      <div class="score-team-header team-gold">★ TEAM GOLD — 🔥 ${goldWings}</div>
+      ${goldPlayers.map(p => `<div class="score-row">
+        <div class="sr-name">${escapeHtml(p.name)}</div>
+        <div class="sr-stats">
+          <span class="stat-pill correct">${p.correct} ✓</span>
+          <span class="stat-pill wings">${p.wings} 🔥</span>
+        </div>
+      </div>`).join('')}
+      <div class="score-team-header team-fire">★ TEAM FIRE — 🔥 ${fireWings}</div>
+      ${firePlayers.map(p => `<div class="score-row">
+        <div class="sr-name">${escapeHtml(p.name)}</div>
+        <div class="sr-stats">
+          <span class="stat-pill correct">${p.correct} ✓</span>
+          <span class="stat-pill wings">${p.wings} 🔥</span>
+        </div>
+      </div>`).join('')}
+    `;
+    return;
+  }
+
+  const sorted = [...state.players].sort((a, b) => b.correct - a.correct);
+  list.innerHTML = sorted.map(p => {
+    const elim = p.eliminated ? '<span style="color:#555;font-size:11px;"> OUT</span>' : '';
+    return `<div class="score-row" style="${p.eliminated?'opacity:0.4;':''}">
+      <div class="sr-name">${escapeHtml(p.name)}${elim}</div>
+      <div class="sr-stats">
+        <span class="stat-pill correct">${p.correct} ✓</span>
+        <span class="stat-pill wings">${p.wings} 🔥</span>
+        ${state.mode === 'standing' ? `<span class="stat-pill strikes">${p.strikes}/3</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// =============================================================================
+// FINALE
+// =============================================================================
+function showFinale() {
+  const banner = document.getElementById('finale-winner');
+  const board = document.getElementById('final-scoreboard');
+
+  if (state.mode === 'teams') {
+    const goldWings = state.players.filter(p => p.team === 'gold').reduce((s, p) => s + p.wings, 0);
+    const fireWings = state.players.filter(p => p.team === 'fire').reduce((s, p) => s + p.wings, 0);
+    const winner = goldWings < fireWings ? 'TEAM GOLD' : (fireWings < goldWings ? 'TEAM FIRE' : 'TIE');
+    banner.innerHTML = winner === 'TIE' ? '★ DEAD HEAT ★' : `★ ${winner} WINS ★`;
+    board.innerHTML = `
+      <div class="final-row ${goldWings <= fireWings ? 'winner' : ''}">
+        <div class="fr-name">TEAM GOLD</div>
+        <div class="fr-stats">🔥 ${goldWings} wings</div>
+      </div>
+      <div class="final-row ${fireWings < goldWings ? 'winner' : ''}">
+        <div class="fr-name">TEAM FIRE</div>
+        <div class="fr-stats">🔥 ${fireWings} wings</div>
+      </div>
+    `;
+    goTo('finale-screen');
+    return;
+  }
+
+  if (state.mode === 'standing') {
+    const alive = state.players.filter(p => !p.eliminated);
+    if (alive.length === 1) banner.innerHTML = `★ ${alive[0].name.toUpperCase()} SURVIVES ★`;
+    else if (alive.length === 0) banner.innerHTML = '★ MUTUAL DESTRUCTION ★';
+    else banner.innerHTML = `★ ${alive.length} STILL STANDING ★`;
+  } else if (state.mode === 'gauntlet') {
+    const p = state.players[0];
+    const score = p.correct - p.wings;
+    banner.innerHTML = `★ ${p.name.toUpperCase()} — SCORE: ${score} ★`;
+  } else {
+    const sorted = [...state.players].sort((a, b) => b.correct - a.correct || a.wings - b.wings);
+    if (sorted[0].correct > 0) banner.innerHTML = `★ ${sorted[0].name.toUpperCase()} WINS ★`;
+    else banner.innerHTML = '★ THAT WAS BRUTAL ★';
+  }
+
+  const sorted = [...state.players].sort((a, b) => b.correct - a.correct || a.wings - b.wings);
+  board.innerHTML = sorted.map((p, i) => `
+    <div class="final-row ${i === 0 && p.correct > 0 ? 'winner' : ''}">
+      <div class="fr-name">${escapeHtml(p.name)}${p.eliminated ? ' (OUT)' : ''}</div>
+      <div class="fr-stats">${p.correct} correct • ${p.wings} wings</div>
+    </div>
+  `).join('');
+
+  goTo('finale-screen');
+}
+
+// =============================================================================
+// RESET
+// =============================================================================
+function resetGame(fullReset) {
+  if (fullReset) {
+    location.reload();
+    return;
+  }
+  // Keep players & mode, reset stats
+  state.players.forEach(p => { p.wings = 0; p.correct = 0; p.strikes = 0; p.eliminated = false; p.immuneNext = false; p.skipNext = false; });
+  state.currentWing = 0;
+  state.teamRotation = { gold: 0, fire: 0 };
+  state.doublersNext = new Set();
+  buildWingList();
+  goTo('game-screen');
+  loadWing();
+}
+
+function confirmExit() {
+  if (confirm('End the show and return to the start?')) location.reload();
+}
+
+// =============================================================================
+// IPAD UX
+// =============================================================================
+document.addEventListener('touchmove', function(e) {
+  if (e.target.closest('.scoreboard') || e.target.closest('#setup-screen') || e.target.closest('#mode-screen') || e.target.closest('#finale-screen')) return;
+  e.preventDefault();
+}, { passive: false });
+
+let wakeLock = null;
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+  } catch (err) {}
+}
+document.addEventListener('click', () => { if (!wakeLock) requestWakeLock(); }, { once: true });
+
+// =============================================================================
+// CUSTOM QUESTIONS — localStorage-backed bank
+// =============================================================================
+const CUSTOM_BANK_KEY = 'hotones_custom_bank_v1';
+let editingIdx = null;
+
+function loadCustomBank() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_BANK_KEY);
+    if (!raw) return [];
+    const bank = JSON.parse(raw);
+    if (!Array.isArray(bank)) return [];
+    return bank.filter(q => q && q.q && q.a && q.cat && q.diff);
+  } catch (e) { return []; }
+}
+
+function saveCustomBank(bank) {
+  try {
+    localStorage.setItem(CUSTOM_BANK_KEY, JSON.stringify(bank));
+    return true;
+  } catch (e) {
+    alert('Could not save. Storage may be full.');
+    return false;
+  }
+}
+
+function saveCustomQuestion() {
+  const q = document.getElementById('cq-question').value.trim();
+  const a = document.getElementById('cq-answer').value.trim();
+  const acceptRaw = document.getElementById('cq-accept').value.trim();
+  const cat = document.getElementById('cq-category').value;
+  const diff = parseInt(document.getElementById('cq-difficulty').value);
+  const note = document.getElementById('cq-note').value.trim();
+
+  if (!q || !a) {
+    alert('Question and Answer are required.');
+    return;
+  }
+
+  const accept = acceptRaw
+    ? acceptRaw.split(',').map(s => s.trim()).filter(Boolean)
+    : undefined;
+
+  const newQ = { q, a, cat, diff, custom: true };
+  if (accept && accept.length) newQ.accept = accept;
+  if (note) newQ.note = note;
+
+  const bank = loadCustomBank();
+  if (editingIdx !== null && editingIdx >= 0 && editingIdx < bank.length) {
+    bank[editingIdx] = newQ;
+  } else {
+    bank.push(newQ);
+  }
+  saveCustomBank(bank);
+  clearEditor();
+  renderCustomList();
+}
+
+function clearEditor() {
+  document.getElementById('cq-question').value = '';
+  document.getElementById('cq-answer').value = '';
+  document.getElementById('cq-accept').value = '';
+  document.getElementById('cq-category').value = 'custom';
+  document.getElementById('cq-difficulty').value = '2';
+  document.getElementById('cq-note').value = '';
+  editingIdx = null;
+  document.getElementById('cq-save-btn').textContent = 'ADD TO BANK';
+}
+
+function editCustom(idx) {
+  const bank = loadCustomBank();
+  const q = bank[idx];
+  if (!q) return;
+  document.getElementById('cq-question').value = q.q;
+  document.getElementById('cq-answer').value = q.a;
+  document.getElementById('cq-accept').value = q.accept ? q.accept.join(', ') : '';
+  document.getElementById('cq-category').value = q.cat;
+  document.getElementById('cq-difficulty').value = q.diff;
+  document.getElementById('cq-note').value = q.note || '';
+  editingIdx = idx;
+  document.getElementById('cq-save-btn').textContent = 'SAVE CHANGES';
+  document.getElementById('cq-question').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function deleteCustom(idx) {
+  if (!confirm('Delete this question?')) return;
+  const bank = loadCustomBank();
+  bank.splice(idx, 1);
+  saveCustomBank(bank);
+  if (editingIdx === idx) clearEditor();
+  renderCustomList();
+}
+
+function clearAllCustom() {
+  const bank = loadCustomBank();
+  if (bank.length === 0) return;
+  if (!confirm(`Delete ALL ${bank.length} custom questions? This cannot be undone.`)) return;
+  saveCustomBank([]);
+  clearEditor();
+  renderCustomList();
+}
+
+function renderCustomList() {
+  const bank = loadCustomBank();
+  document.getElementById('cq-count').textContent = bank.length;
+  const list = document.getElementById('custom-list');
+  if (bank.length === 0) {
+    list.innerHTML = '<div class="editor-empty">No custom questions yet. Add one above to get started.</div>';
+    return;
+  }
+  const diffLabels = ['', 'Easy', 'Medium', 'Hard'];
+  list.innerHTML = bank.map((q, i) => `
+    <div class="custom-item">
+      <div class="custom-item-body">
+        <div class="custom-item-q">${escapeHtml(q.q)}</div>
+        <div class="custom-item-meta">
+          <span>✓ ${escapeHtml(q.a)}</span>
+          <span>${q.cat.toUpperCase()}</span>
+          <span>${diffLabels[q.diff]}</span>
+        </div>
+      </div>
+      <div class="custom-item-actions">
+        <button class="custom-item-btn" onclick="editCustom(${i})">EDIT</button>
+        <button class="custom-item-btn del" onclick="deleteCustom(${i})">DEL</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function exportCustomBank() {
+  const bank = loadCustomBank();
+  if (bank.length === 0) { alert('No custom questions to export.'); return; }
+  const data = JSON.stringify(bank, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `hotones_custom_bank_${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importCustomBank(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!Array.isArray(imported)) throw new Error('Not an array.');
+      const valid = imported.filter(q => q && q.q && q.a && q.cat && q.diff);
+      if (valid.length === 0) { alert('No valid questions found in file.'); return; }
+      const current = loadCustomBank();
+      const merge = confirm(
+        `Found ${valid.length} valid questions.\n\n` +
+        `OK = Add to your current ${current.length} custom questions.\n` +
+        `Cancel = Replace all current custom questions.`
+      );
+      const newBank = merge ? current.concat(valid) : valid;
+      saveCustomBank(newBank);
+      renderCustomList();
+      alert(`Imported ${valid.length} questions.`);
+    } catch (err) {
+      alert('Could not read file. Is it a valid JSON export?');
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// =============================================================================
+// AUDIENCE WILDCARD
+// =============================================================================
+const MAX_WILDCARDS = 3;
+let wildcardsUsed = 0;
+let wildcardQuestion = null;
+
+function triggerWildcard() {
+  if (wildcardsUsed >= MAX_WILDCARDS) {
+    alert(`Max ${MAX_WILDCARDS} wildcards per game.`);
+    return;
+  }
+  const usedQs = new Set(state.wingList.map(q => q.q));
+  const customBank = loadCustomBank();
+  const includeCustomEl = document.getElementById('include-custom');
+  const includeCustom = includeCustomEl && includeCustomEl.checked;
+  const fullBank = includeCustom ? QUESTIONS.concat(customBank) : QUESTIONS;
+  let pool = fullBank.filter(q => !usedQs.has(q.q));
+  if (pool.length === 0) pool = fullBank.slice();
+  wildcardQuestion = pool[Math.floor(Math.random() * pool.length)];
+
+  document.getElementById('wc-question').textContent = wildcardQuestion.q;
+  document.getElementById('wc-answer').textContent = wildcardQuestion.a;
+  document.getElementById('wc-answer-note').textContent = wildcardQuestion.note || '';
+  document.getElementById('wc-counter').textContent = `WILDCARDS USED: ${wildcardsUsed} / ${MAX_WILDCARDS}`;
+
+  document.getElementById('wc-phase-vote').style.display = 'block';
+  document.getElementById('wc-phase-verdict').style.display = 'none';
+
+  document.getElementById('wildcard-overlay').classList.add('open');
+}
+
+function revealWildcardAnswer() {
+  document.getElementById('wc-phase-vote').style.display = 'none';
+  document.getElementById('wc-phase-verdict').style.display = 'block';
+}
+
+function resolveWildcard(outcome) {
+  wildcardsUsed += 1;
+  document.getElementById('wc-counter').textContent = `WILDCARDS USED: ${wildcardsUsed} / ${MAX_WILDCARDS}`;
+
+  if (outcome === 'crowd-win') {
+    state.players.forEach(p => {
+      if (!p.eliminated) {
+        p.wings += 1;
+        if (state.mode === 'standing') {
+          p.strikes += 1;
+          if (p.strikes >= 3) p.eliminated = true;
+        }
+      }
+    });
+  } else if (outcome === 'crowd-whiff') {
+    state.players.forEach(p => { if (!p.eliminated) p.immuneNext = true; });
+  }
+
+  if (wildcardsUsed >= MAX_WILDCARDS) {
+    document.getElementById('wildcard-btn').disabled = true;
+  }
+
+  closeWildcard();
+  if (state.phase === 'verdict') renderVerdicts();
+}
+
+function closeWildcard() {
+  document.getElementById('wildcard-overlay').classList.remove('open');
+  wildcardQuestion = null;
+}
+
+// Reset wildcard counter when a new game starts
+const _origStartShow = startShow;
+startShow = function() {
+  wildcardsUsed = 0;
+  const wb = document.getElementById('wildcard-btn');
+  if (wb) wb.disabled = false;
+  _origStartShow.apply(this, arguments);
+};
+
+const _origResetGame = resetGame;
+resetGame = function(full) {
+  if (!full) {
+    wildcardsUsed = 0;
+    const wb = document.getElementById('wildcard-btn');
+    if (wb) wb.disabled = false;
+  }
+  _origResetGame.apply(this, arguments);
+};
+</script>
+</body>
+</html>
