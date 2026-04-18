@@ -291,6 +291,15 @@
   .stat-pill.wings { background: var(--crimson); color: var(--gold-bright); }
   .stat-pill.correct { background: rgba(200,169,81,0.2); color: var(--gold-bright); border: 1px solid var(--gold-dim); }
   .stat-pill.strikes { background: var(--fire); color: var(--white); }
+  .sr-tapout {
+    background: transparent; border: 1px solid var(--fire);
+    color: var(--fire); padding: 4px 10px; border-radius: 3px;
+    font-size: 10px; letter-spacing: 2px; font-weight: 700;
+    cursor: pointer; font-family: inherit; text-transform: uppercase;
+    margin-left: 8px;
+  }
+  .sr-tapout:active { background: rgba(255,69,0,0.2); }
+  .sr-tappedout { color: var(--fire); font-size: 10px; letter-spacing: 2px; font-weight: 700; margin-left: 8px; }
 
   .score-team-header { color: var(--gold-bright); font-weight: 800; font-size: 14px; letter-spacing: 4px; padding: 12px 8px 8px; border-bottom: 1px solid var(--gold-dim); margin-top: 14px; }
   .score-team-header.team-gold { color: var(--gold-bright); }
@@ -1478,11 +1487,12 @@ function handleModeQuestionStart() {
     // Clear immunity flags for everyone this round
     state.players.forEach(p => p.immuneNext = false);
   } else if (state.mode === 'teams') {
-    // Pick one player from each team rotating
-    const goldPlayers = state.players.filter(p => p.team === 'gold');
-    const firePlayers = state.players.filter(p => p.team === 'fire');
-    const goldUp = goldPlayers[state.teamRotation.gold % goldPlayers.length];
-    const fireUp = firePlayers[state.teamRotation.fire % firePlayers.length];
+    // Pick one active player from each team rotating
+    const goldIdx = teamCaptainIdx('gold');
+    const fireIdx = teamCaptainIdx('fire');
+    if (goldIdx < 0 || fireIdx < 0) { checkEndConditions(); return; }
+    const goldUp = state.players[goldIdx];
+    const fireUp = state.players[fireIdx];
     otsBlock.style.display = 'block';
     otsName.innerHTML = `<span style="color: var(--gold-bright);">★ ${goldUp.name} ★</span>  <span style="color:#555;">VS</span>  <span style="color: var(--fire-bright);">★ ${fireUp.name} ★</span>`;
   } else if (state.mode === 'double') {
@@ -1589,11 +1599,9 @@ function renderVerdicts() {
     label.textContent = "TAP THE TEAM CAPTAIN WHO ANSWERED";
     teamBlock.style.display = 'block';
     renderTeamSummary();
-    const goldPlayers = state.players.filter(p => p.team === 'gold');
-    const firePlayers = state.players.filter(p => p.team === 'fire');
-    const goldUp = goldPlayers[state.teamRotation.gold % goldPlayers.length];
-    const fireUp = firePlayers[state.teamRotation.fire % firePlayers.length];
-    const captains = [goldUp, fireUp];
+    const goldIdx = teamCaptainIdx('gold');
+    const fireIdx = teamCaptainIdx('fire');
+    const captains = [goldIdx, fireIdx].filter(i => i >= 0).map(i => state.players[i]);
     grid.innerHTML = captains.map(p => {
       const idx = state.players.indexOf(p);
       const v = state.verdicts[idx];
@@ -1658,7 +1666,7 @@ function renderVerdicts() {
     if (p.eliminated) {
       return `<div class="player-verdict eliminated">
         <div class="pv-name">${escapeHtml(p.name)}</div>
-        <div class="pv-status">ELIMINATED</div>
+        <div class="pv-status">${p.tappedOut ? '🏳️ TAPPED OUT' : 'ELIMINATED'}</div>
       </div>`;
     }
     const v = state.verdicts[i];
@@ -1718,10 +1726,10 @@ function commitAndAdvance() {
   } else if (state.mode === 'gauntlet') {
     expected.push(0);
   } else if (state.mode === 'teams') {
-    const goldPlayers = state.players.filter(p => p.team === 'gold');
-    const firePlayers = state.players.filter(p => p.team === 'fire');
-    if (goldPlayers.length) expected.push(state.players.indexOf(goldPlayers[state.teamRotation.gold % goldPlayers.length]));
-    if (firePlayers.length) expected.push(state.players.indexOf(firePlayers[state.teamRotation.fire % firePlayers.length]));
+    const goldIdx = teamCaptainIdx('gold');
+    const fireIdx = teamCaptainIdx('fire');
+    if (goldIdx >= 0) expected.push(goldIdx);
+    if (fireIdx >= 0) expected.push(fireIdx);
   } else {
     // classic, standing, double: everyone still in the game who isn't locked immune
     state.players.forEach((p, i) => {
@@ -1757,18 +1765,18 @@ function commitAndAdvance() {
 
   // Handle team mode — team-wide wings
   if (state.mode === 'teams') {
-    const goldPlayers = state.players.filter(p => p.team === 'gold');
-    const firePlayers = state.players.filter(p => p.team === 'fire');
-    const goldUp = goldPlayers[state.teamRotation.gold % goldPlayers.length];
-    const fireUp = firePlayers[state.teamRotation.fire % firePlayers.length];
-    const goldIdx = state.players.indexOf(goldUp);
-    const fireIdx = state.players.indexOf(fireUp);
-    // The team whose captain was wrong — every member eats
-    if (state.verdicts[goldIdx] === 'wrong') {
-      goldPlayers.forEach(p => { if (p !== goldUp) p.wings += 1; }); // captain already +1 above
+    const goldIdx = teamCaptainIdx('gold');
+    const fireIdx = teamCaptainIdx('fire');
+    const goldActive = state.players.filter(p => p.team === 'gold' && !p.eliminated);
+    const fireActive = state.players.filter(p => p.team === 'fire' && !p.eliminated);
+    const goldUp = goldIdx >= 0 ? state.players[goldIdx] : null;
+    const fireUp = fireIdx >= 0 ? state.players[fireIdx] : null;
+    // The team whose captain was wrong — every active member eats
+    if (goldUp && state.verdicts[goldIdx] === 'wrong') {
+      goldActive.forEach(p => { if (p !== goldUp) p.wings += 1; }); // captain already +1 above
     }
-    if (state.verdicts[fireIdx] === 'wrong') {
-      firePlayers.forEach(p => { if (p !== fireUp) p.wings += 1; });
+    if (fireUp && state.verdicts[fireIdx] === 'wrong') {
+      fireActive.forEach(p => { if (p !== fireUp) p.wings += 1; });
     }
     // Rotate captains
     state.teamRotation.gold += 1;
@@ -1782,11 +1790,8 @@ function commitAndAdvance() {
   if ((anyAte || state.sauceAdvanceThisRound) && state.sauceIdx < 8) state.sauceIdx += 1;
   state.sauceAdvanceThisRound = false;
 
-  // Check end conditions
-  if (state.mode === 'standing') {
-    const alive = state.players.filter(p => !p.eliminated);
-    if (alive.length <= 1) { showFinale(); return; }
-  }
+  // Check end conditions (mode-specific and universal)
+  if (checkEndConditions()) return;
   if (state.mode === 'teams') {
     const goldWings = state.players.filter(p => p.team === 'gold').reduce((s, p) => s + p.wings, 0);
     const fireWings = state.players.filter(p => p.team === 'fire').reduce((s, p) => s + p.wings, 0);
@@ -1836,8 +1841,64 @@ function toggleHint() {
   btn.classList.toggle('active', open);
 }
 
+function tapOut(idx) {
+  const p = state.players[idx];
+  if (!p || p.eliminated) return;
+  const msg = state.mode === 'gauntlet'
+    ? `End the show — ${p.name} can't take any more?`
+    : `Tap out ${p.name}? They're done for the rest of the show. This can't be undone.`;
+  if (!confirm(msg)) return;
+  p.eliminated = true;
+  p.tappedOut = true;
+  p.immuneNext = false;
+  p.skipNext = false;
+  delete state.verdicts[idx];
+
+  if (state.phase) renderVerdicts();
+  renderScoreboard();
+  checkEndConditions();
+}
+
+function checkEndConditions() {
+  const active = state.players.filter(p => !p.eliminated);
+  if (active.length === 0) { showFinale(); return true; }
+  if (state.mode === 'standing' && active.length <= 1) { showFinale(); return true; }
+  if (state.mode === 'teams') {
+    const goldActive = state.players.filter(p => p.team === 'gold' && !p.eliminated).length;
+    const fireActive = state.players.filter(p => p.team === 'fire' && !p.eliminated).length;
+    if (goldActive === 0 || fireActive === 0) { showFinale(); return true; }
+  }
+  if (state.mode === 'gauntlet' && active.length === 0) { showFinale(); return true; }
+  return false;
+}
+
+function teamCaptainIdx(team) {
+  const teamPlayers = state.players.filter(p => p.team === team && !p.eliminated);
+  if (teamPlayers.length === 0) return -1;
+  const rot = state.teamRotation[team] || 0;
+  return state.players.indexOf(teamPlayers[rot % teamPlayers.length]);
+}
+
 function renderScoreboard() {
   const list = document.getElementById('score-list');
+  const rowHTML = (p) => {
+    const i = state.players.indexOf(p);
+    const status = p.tappedOut ? '<span class="sr-tappedout">🏳️ TAPPED OUT</span>'
+                 : p.eliminated ? '<span class="sr-tappedout" style="color:#888;border:none;">OUT</span>'
+                 : '';
+    const action = p.eliminated ? '' : `<button class="sr-tapout" onclick="tapOut(${i})" aria-label="Tap out ${escapeHtml(p.name)}">TAP OUT</button>`;
+    const style = p.eliminated ? 'opacity:0.5;' : '';
+    return `<div class="score-row" style="${style}">
+      <div class="sr-name">${escapeHtml(p.name)}${status}</div>
+      <div class="sr-stats">
+        <span class="stat-pill correct">${p.correct} ✓</span>
+        <span class="stat-pill wings">${p.wings} 🔥</span>
+        ${state.mode === 'standing' ? `<span class="stat-pill strikes">${p.strikes}/3</span>` : ''}
+        ${action}
+      </div>
+    </div>`;
+  };
+
   if (state.mode === 'teams') {
     const goldPlayers = state.players.filter(p => p.team === 'gold');
     const firePlayers = state.players.filter(p => p.team === 'fire');
@@ -1845,37 +1906,15 @@ function renderScoreboard() {
     const fireWings = firePlayers.reduce((s, p) => s + p.wings, 0);
     list.innerHTML = `
       <div class="score-team-header team-gold">★ TEAM GOLD — 🔥 ${goldWings}</div>
-      ${goldPlayers.map(p => `<div class="score-row">
-        <div class="sr-name">${escapeHtml(p.name)}</div>
-        <div class="sr-stats">
-          <span class="stat-pill correct">${p.correct} ✓</span>
-          <span class="stat-pill wings">${p.wings} 🔥</span>
-        </div>
-      </div>`).join('')}
+      ${goldPlayers.map(rowHTML).join('')}
       <div class="score-team-header team-fire">★ TEAM FIRE — 🔥 ${fireWings}</div>
-      ${firePlayers.map(p => `<div class="score-row">
-        <div class="sr-name">${escapeHtml(p.name)}</div>
-        <div class="sr-stats">
-          <span class="stat-pill correct">${p.correct} ✓</span>
-          <span class="stat-pill wings">${p.wings} 🔥</span>
-        </div>
-      </div>`).join('')}
+      ${firePlayers.map(rowHTML).join('')}
     `;
     return;
   }
 
   const sorted = [...state.players].sort((a, b) => b.correct - a.correct);
-  list.innerHTML = sorted.map(p => {
-    const elim = p.eliminated ? '<span style="color:#555;font-size:11px;"> OUT</span>' : '';
-    return `<div class="score-row" style="${p.eliminated?'opacity:0.4;':''}">
-      <div class="sr-name">${escapeHtml(p.name)}${elim}</div>
-      <div class="sr-stats">
-        <span class="stat-pill correct">${p.correct} ✓</span>
-        <span class="stat-pill wings">${p.wings} 🔥</span>
-        ${state.mode === 'standing' ? `<span class="stat-pill strikes">${p.strikes}/3</span>` : ''}
-      </div>
-    </div>`;
-  }).join('');
+  list.innerHTML = sorted.map(rowHTML).join('');
 }
 
 // =============================================================================
