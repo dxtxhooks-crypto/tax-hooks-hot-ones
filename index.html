@@ -1373,6 +1373,34 @@ function escapeHtml(s) {
 // =============================================================================
 // QUESTION SELECTION
 // =============================================================================
+// Avoid back-to-back repeats across sessions
+const RECENT_Q_KEY = 'hotones_recent_q_v1';
+const RECENT_Q_FACTOR = 3; // remember roughly this many games' worth of questions
+
+function loadRecentQuestions() {
+  try {
+    const raw = localStorage.getItem(RECENT_Q_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+}
+
+function rememberAskedQuestions(wingList) {
+  try {
+    const existing = loadRecentQuestions();
+    const fresh = (wingList || []).map(q => q.q).filter(Boolean);
+    const cap = Math.max(30, (state.wingCount || 10) * RECENT_Q_FACTOR);
+    const seen = new Set();
+    const combined = [];
+    for (const q of [...fresh, ...existing]) {
+      if (!seen.has(q)) { seen.add(q); combined.push(q); }
+      if (combined.length >= cap) break;
+    }
+    localStorage.setItem(RECENT_Q_KEY, JSON.stringify(combined));
+  } catch (e) {}
+}
+
 function buildWingList() {
   const customBank = loadCustomBank();
   const includeCustomEl = document.getElementById('include-custom');
@@ -1392,6 +1420,13 @@ function buildWingList() {
   if (state.difficulty !== 'mixed') {
     const d = parseInt(state.difficulty);
     pool = pool.filter(q => q.diff === d);
+  }
+
+  // Filter out recently-asked questions — only if there's still enough to fill the game.
+  const recent = new Set(loadRecentQuestions());
+  if (recent.size > 0) {
+    const trimmed = pool.filter(q => !recent.has(q.q));
+    if (trimmed.length >= state.wingCount) pool = trimmed;
   }
 
   // Shuffle
@@ -1418,6 +1453,7 @@ function startShow() {
     alert(`Only ${state.wingList.length} questions match your filters. Loosen category or difficulty.`);
     return;
   }
+  rememberAskedQuestions(state.wingList);
   state.currentWing = 0;
   state.sauceIdx = 0;
   state.sauceAdvanceThisRound = false;
@@ -1978,7 +2014,7 @@ function resetGame(fullReset) {
     return;
   }
   // Keep players & mode, reset stats
-  state.players.forEach(p => { p.wings = 0; p.correct = 0; p.strikes = 0; p.eliminated = false; p.immuneNext = false; p.skipNext = false; });
+  state.players.forEach(p => { p.wings = 0; p.correct = 0; p.strikes = 0; p.eliminated = false; p.tappedOut = false; p.immuneNext = false; p.skipNext = false; });
   state.currentWing = 0;
   state.sauceIdx = 0;
   state.sauceAdvanceThisRound = false;
@@ -1986,6 +2022,7 @@ function resetGame(fullReset) {
   state.doublersNext = new Set();
   state.history = [];
   buildWingList();
+  rememberAskedQuestions(state.wingList);
   goTo('game-screen');
   loadWing();
 }
