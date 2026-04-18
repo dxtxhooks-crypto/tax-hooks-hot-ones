@@ -1668,6 +1668,27 @@ function cycleVerdict(idx) {
 // COMMIT & ADVANCE
 // =============================================================================
 function commitAndAdvance() {
+  // If the host forgot to mark an expected answerer, default them to 'wrong' — they eat the wing.
+  const expected = [];
+  if (state.mode === 'spotlight' && state.spotlightIdx != null) {
+    expected.push(state.spotlightIdx);
+  } else if (state.mode === 'gauntlet') {
+    expected.push(0);
+  } else if (state.mode === 'teams') {
+    const goldPlayers = state.players.filter(p => p.team === 'gold');
+    const firePlayers = state.players.filter(p => p.team === 'fire');
+    if (goldPlayers.length) expected.push(state.players.indexOf(goldPlayers[state.teamRotation.gold % goldPlayers.length]));
+    if (firePlayers.length) expected.push(state.players.indexOf(firePlayers[state.teamRotation.fire % firePlayers.length]));
+  } else {
+    // classic, standing, double: everyone still in the game who isn't locked immune
+    state.players.forEach((p, i) => {
+      if (!p.eliminated && state.verdicts[i] !== 'immune') expected.push(i);
+    });
+  }
+  expected.forEach(i => {
+    if (state.verdicts[i] == null) state.verdicts[i] = 'wrong';
+  });
+
   // Write verdicts to player stats
   Object.entries(state.verdicts).forEach(([idxStr, v]) => {
     const idx = parseInt(idxStr);
