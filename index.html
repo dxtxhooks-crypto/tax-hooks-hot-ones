@@ -1152,6 +1152,7 @@ const state = {
   players: [],         // { name, team?, wings, correct, strikes, eliminated, immuneNext, doubledNext, skipNext }
   wingList: [],        // selected questions for this game
   currentWing: 0,
+  sauceIdx: 0,         // sauce ladder (0..8, Last Dab reserved for final wing); advances only when someone ate last round
   phase: 'question',
   verdicts: {},        // per-player verdict for current wing
   spotlightIdx: null,  // for spotlight/teams mode
@@ -1174,14 +1175,12 @@ const SAUCES = [
   { sauce: "THE LAST DAB: THERMAGEDDON", shu: "2,000,000+" }
 ];
 
-function getSauceForWing(wingIdx, total) {
-  // Map wing index to sauce index — scales across any total
-  // Always end with Last Dab on final wing
-  if (wingIdx === total - 1) return SAUCES[9]; // Last Dab on finale
-  if (total <= 10) return SAUCES[Math.min(wingIdx, 8)];
-  // For >10 wings, spread the first 9 sauces across pre-finale wings
-  const progress = wingIdx / (total - 1);
-  return SAUCES[Math.min(Math.floor(progress * 9), 8)];
+function getCurrentSauce() {
+  // Last Dab always on the final wing; otherwise follow the sauceIdx ladder,
+  // which only advances when someone ate a wing the previous round.
+  const isFinal = state.currentWing === state.wingCount - 1;
+  if (isFinal) return SAUCES[9];
+  return SAUCES[Math.min(state.sauceIdx, 8)];
 }
 
 // =============================================================================
@@ -1378,6 +1377,7 @@ function startShow() {
     return;
   }
   state.currentWing = 0;
+  state.sauceIdx = 0;
   state.doublersNext = new Set();
   goTo('game-screen');
   loadWing();
@@ -1385,7 +1385,7 @@ function startShow() {
 
 function loadWing() {
   const q = state.wingList[state.currentWing];
-  const sauce = getSauceForWing(state.currentWing, state.wingCount);
+  const sauce = getCurrentSauce();
   const isFinal = state.currentWing === state.wingCount - 1;
 
   document.getElementById('wing-num').textContent = String(state.currentWing + 1).padStart(2, '0');
@@ -1713,6 +1713,10 @@ function commitAndAdvance() {
 
   state.doublersThisRound = new Set();
 
+  // Sauce only escalates if someone ate a wing this round. All-safe holds the sauce.
+  const anyAte = Object.values(state.verdicts).some(v => v === 'wrong');
+  if (anyAte && state.sauceIdx < 8) state.sauceIdx += 1;
+
   // Check end conditions
   if (state.mode === 'standing') {
     const alive = state.players.filter(p => !p.eliminated);
@@ -1872,6 +1876,7 @@ function resetGame(fullReset) {
   // Keep players & mode, reset stats
   state.players.forEach(p => { p.wings = 0; p.correct = 0; p.strikes = 0; p.eliminated = false; p.immuneNext = false; p.skipNext = false; });
   state.currentWing = 0;
+  state.sauceIdx = 0;
   state.teamRotation = { gold: 0, fire: 0 };
   state.doublersNext = new Set();
   buildWingList();
