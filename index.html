@@ -1857,7 +1857,7 @@ function confirmExit() {
 // IPAD UX
 // =============================================================================
 document.addEventListener('touchmove', function(e) {
-  if (e.target.closest('.scoreboard') || e.target.closest('#setup-screen') || e.target.closest('#mode-screen') || e.target.closest('#finale-screen')) return;
+  if (e.target.closest('.scoreboard') || e.target.closest('#title-screen') || e.target.closest('#setup-screen') || e.target.closest('#mode-screen') || e.target.closest('#finale-screen') || e.target.closest('#editor-screen')) return;
   e.preventDefault();
 }, { passive: false });
 
