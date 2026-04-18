@@ -226,6 +226,28 @@
   /* VERDICT — now with team support */
   .verdict-phase { width: 100%; max-width: 1100px; margin: 0 auto; }
   .verdict-label { text-align: center; color: var(--gold-bright); font-size: 15px; letter-spacing: 6px; font-weight: 700; margin-bottom: 22px; }
+  .interview-banner {
+    display: flex; align-items: center; gap: 14px;
+    max-width: 820px; margin: 0 auto 20px;
+    background: linear-gradient(180deg, rgba(200,169,81,0.12), rgba(200,169,81,0.04));
+    border: 1px solid var(--gold-dim); border-radius: 6px;
+    padding: 14px 18px;
+    animation: fadeIn 0.4s;
+  }
+  .iv-icon { font-size: 28px; line-height: 1; }
+  .iv-body { flex: 1; }
+  .iv-label { color: var(--gold); font-size: 10px; letter-spacing: 4px; font-weight: 800; margin-bottom: 4px; }
+  .iv-line { color: var(--white); font-size: 15px; line-height: 1.4; }
+  .iv-line strong { color: var(--gold-bright); }
+  .iv-dismiss {
+    background: transparent; border: 1px solid var(--gold-dim);
+    color: var(--gold); width: 30px; height: 30px;
+    border-radius: 50%; cursor: pointer; font-size: 14px;
+    font-weight: 700; font-family: inherit;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; flex: 0 0 auto;
+  }
+  .iv-dismiss:active { background: rgba(200,169,81,0.15); }
   .player-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
   .player-verdict {
     background: var(--smoke);
@@ -628,6 +650,13 @@
         <input type="checkbox" id="include-custom" checked>
         <label for="include-custom">INCLUDE MY CUSTOM QUESTIONS</label>
       </div>
+      <div class="option-row">
+        <div class="option-label">Interview Prompts</div>
+        <div class="pill-group" id="interview-picker">
+          <button class="pill active" data-interview="on">On</button>
+          <button class="pill" data-interview="off">Off</button>
+        </div>
+      </div>
     </div>
     <div class="setup-footer">
       <button class="btn-back" onclick="goTo('title-screen')">← BACK</button>
@@ -710,6 +739,14 @@
             <div class="team-summary" id="team-summary"></div>
           </div>
           <div class="verdict-label" id="verdict-label">TAP EACH NAME — WRONG ANSWERS EAT THE WING</div>
+          <div class="interview-banner" id="interview-prompt" style="display:none;">
+            <div class="iv-icon">💬</div>
+            <div class="iv-body">
+              <div class="iv-label">INTERVIEW BREAK</div>
+              <div class="iv-line">Ask <strong id="interview-target"></strong> — <span id="interview-text"></span></div>
+            </div>
+            <button class="iv-dismiss" onclick="dismissInterview()" aria-label="Skip interview">✕</button>
+          </div>
           <div class="player-grid" id="player-grid"></div>
         </div>
       </div>
@@ -1258,8 +1295,44 @@ const state = {
   teamRotation: { gold: 0, fire: 0 }, // which player in team is up
   teamVerdict: null,   // 'correct' | 'wrong' for teams mode
   doublersNext: new Set(), // players who doubled on prior wing — must also eat current if wrong
-  history: []           // pre-commit snapshots so BACK from a later wing unwinds stats cleanly
+  history: [],          // pre-commit snapshots so BACK from a later wing unwinds stats cleanly
+  interviewPromptsEnabled: true, // host-facing "💬 Ask [name]" banner on the verdict screen
+  interviewDismissedWing: -1,    // wing index whose interview banner was dismissed
+  interviewState: null           // { targetIdx, prompt } locked in for the current wing
 };
+
+const INTERVIEW_PROMPTS = [
+  "What's the best meal you've had this month?",
+  "What are you celebrating this year?",
+  "What's one goal you're actually close to hitting?",
+  "Who in this room do you owe a thank-you to?",
+  "What's the wildest thing you've done for a meal?",
+  "What's a hot take you'd defend in court?",
+  "What's the last thing that made you laugh out loud?",
+  "What's something you're into that nobody here knows about?",
+  "What's a skill you've picked up in the last year?",
+  "What's the best advice you've gotten recently?",
+  "Who's your go-to in this room when life gets loud?",
+  "What would you tell your 20-year-old self?",
+  "What book, show, or podcast is worth everyone's time right now?",
+  "What's your favorite way to waste a Saturday?",
+  "What's something you used to love but grew out of?",
+  "If you had a free hour right now, how would you spend it?",
+  "What's the best concert or live show you've been to?",
+  "What's an unpopular opinion you actually believe?",
+  "What's a recent win you didn't celebrate enough?",
+  "What's one thing on your bucket list for this year?",
+  "Who'd play you in the movie of your life?",
+  "What's the most embarrassing song you love unapologetically?",
+  "What's one thing that'd make your week 10x better?",
+  "If you could master one skill overnight, what would it be?",
+  "What's the best thing you've cooked this year?",
+  "What would you do with a surprise day off tomorrow?",
+  "Who in your life deserves more credit than they get?",
+  "What's a local spot you always end up recommending?",
+  "Rate the heat you're eating right now, 1 to 10. Defend the score.",
+  "What's your spice tolerance origin story?"
+];
 
 function snapshotState() {
   return {
@@ -1301,6 +1374,15 @@ function getCurrentSauce() {
   const isFinal = state.currentWing === state.wingCount - 1;
   if (isFinal) return SAUCES[9];
   return SAUCES[Math.min(state.sauceIdx, 8)];
+}
+
+// Slots 0–8 need to span wingCount-1 pre-finale rounds. For 5-wing games
+// that means each eat-round should bump the ladder more than one slot, or
+// mid-bottles never get used.
+function sauceStepPerEat() {
+  const n = state.wingCount || 10;
+  if (n <= 1) return 8;
+  return Math.max(1, Math.floor(9 / (n - 1)));
 }
 
 // =============================================================================
@@ -1371,6 +1453,13 @@ document.getElementById('cat-picker').addEventListener('click', e => {
     document.querySelectorAll('#cat-picker .pill').forEach(p => p.classList.remove('active'));
     e.target.classList.add('active');
     state.category = e.target.dataset.cat;
+  }
+});
+document.getElementById('interview-picker').addEventListener('click', e => {
+  if (e.target.classList.contains('pill')) {
+    document.querySelectorAll('#interview-picker .pill').forEach(p => p.classList.remove('active'));
+    e.target.classList.add('active');
+    state.interviewPromptsEnabled = e.target.dataset.interview === 'on';
   }
 });
 
@@ -1469,7 +1558,7 @@ function rememberAskedQuestions(wingList) {
   try {
     const existing = loadRecentQuestions();
     const fresh = (wingList || []).map(q => q.q).filter(Boolean);
-    const cap = Math.max(30, (state.wingCount || 10) * RECENT_Q_FACTOR);
+    const cap = Math.max(50, (state.wingCount || 10) * RECENT_Q_FACTOR);
     const seen = new Set();
     const combined = [];
     for (const q of [...fresh, ...existing]) {
@@ -1538,6 +1627,8 @@ function startShow() {
   state.sauceAdvanceThisRound = false;
   state.doublersNext = new Set();
   state.history = [];
+  state.interviewState = null;
+  state.interviewDismissedWing = -1;
   goTo('game-screen');
   loadWing();
 }
@@ -1681,6 +1772,7 @@ function setPhase(phase) {
     prevBtn.textContent = '← BACK';
     const isFinal = state.currentWing === state.wingCount - 1;
     nextBtn.textContent = isFinal ? 'END THE SHOW →' : 'NEXT WING →';
+    renderInterviewPrompt();
   }
 }
 
@@ -1901,8 +1993,11 @@ function commitAndAdvance() {
   state.doublersThisRound = new Set();
 
   // Sauce only escalates if someone ate a wing this round (regular or via wildcard). All-safe holds the sauce.
+  // Step scales with wingCount so short games actually touch the mid-ladder bottles.
   const anyAte = Object.values(state.verdicts).some(v => v === 'wrong');
-  if ((anyAte || state.sauceAdvanceThisRound) && state.sauceIdx < 8) state.sauceIdx += 1;
+  if ((anyAte || state.sauceAdvanceThisRound) && state.sauceIdx < 8) {
+    state.sauceIdx = Math.min(8, state.sauceIdx + sauceStepPerEat());
+  }
   state.sauceAdvanceThisRound = false;
 
   // Check end conditions (mode-specific and universal)
@@ -1992,6 +2087,44 @@ function teamCaptainIdx(team) {
   if (teamPlayers.length === 0) return -1;
   const rot = state.teamRotation[team] || 0;
   return state.players.indexOf(teamPlayers[rot % teamPlayers.length]);
+}
+
+// ===== Interview prompts =====
+function pickInterviewTarget() {
+  // Prefer someone who ate this round (marked 'wrong'); fall back to a random active player.
+  const wrongs = Object.entries(state.verdicts).filter(([, v]) => v === 'wrong').map(([i]) => parseInt(i));
+  if (wrongs.length > 0) return wrongs[Math.floor(Math.random() * wrongs.length)];
+  const active = state.players.map((p, i) => ({p, i})).filter(x => !x.p.eliminated);
+  if (active.length === 0) return -1;
+  return active[Math.floor(Math.random() * active.length)].i;
+}
+
+function renderInterviewPrompt() {
+  const banner = document.getElementById('interview-prompt');
+  if (!banner) return;
+  if (!state.interviewPromptsEnabled || state.interviewDismissedWing === state.currentWing) {
+    banner.style.display = 'none';
+    return;
+  }
+  // Lock in a target + prompt once per wing so the banner doesn't flicker as verdicts change.
+  if (!state.interviewState || state.interviewState.wing !== state.currentWing) {
+    const idx = pickInterviewTarget();
+    if (idx < 0) { banner.style.display = 'none'; return; }
+    state.interviewState = {
+      wing: state.currentWing,
+      targetIdx: idx,
+      prompt: INTERVIEW_PROMPTS[Math.floor(Math.random() * INTERVIEW_PROMPTS.length)]
+    };
+  }
+  document.getElementById('interview-target').textContent = state.players[state.interviewState.targetIdx].name;
+  document.getElementById('interview-text').textContent = state.interviewState.prompt;
+  banner.style.display = 'flex';
+}
+
+function dismissInterview() {
+  state.interviewDismissedWing = state.currentWing;
+  const banner = document.getElementById('interview-prompt');
+  if (banner) banner.style.display = 'none';
 }
 
 function renderScoreboard() {
@@ -2100,6 +2233,8 @@ function resetGame(fullReset) {
   state.teamRotation = { gold: 0, fire: 0 };
   state.doublersNext = new Set();
   state.history = [];
+  state.interviewState = null;
+  state.interviewDismissedWing = -1;
   buildWingList();
   rememberAskedQuestions(state.wingList);
   goTo('game-screen');
@@ -2329,8 +2464,8 @@ function describeWildcardConsequences() {
   } else {
     winLine = `${who} eat a wing`;
   }
-  // Sauce preview — bump to next unless already pinned at slot 8
-  const nextSauce = SAUCES[Math.min(state.sauceIdx + 1, 8)].sauce;
+  // Sauce preview — bump by one step (scales with wingCount) unless already pinned at slot 8
+  const nextSauce = SAUCES[Math.min(state.sauceIdx + sauceStepPerEat(), 8)].sauce;
   const sauceLine = state.sauceIdx < 8 ? ` · sauce next round → ${nextSauce}` : '';
   const whiffLine = `${who} immune next wing`;
   document.getElementById('wc-consequence-win').textContent = winLine + sauceLine;
