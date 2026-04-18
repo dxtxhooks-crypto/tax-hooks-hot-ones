@@ -1478,8 +1478,8 @@ function handleModeQuestionStart() {
   otsBlock.style.display = 'none';
 
   if (state.mode === 'spotlight') {
-    // Host picks one — default: cycle through eligible (not immune)
-    const eligible = state.players.filter(p => !p.eliminated && !p.immuneNext);
+    // Host picks one — default: cycle through eligible (not immune, not already locked-safe by a wildcard whiff)
+    const eligible = state.players.filter(p => !p.eliminated && !p.immuneNext && !p.skipNext);
     const pool = eligible.length > 0 ? eligible : state.players.filter(p => !p.eliminated);
     state.spotlightIdx = state.players.indexOf(pool[state.currentWing % pool.length]);
     otsBlock.style.display = 'block';
