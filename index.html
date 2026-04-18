@@ -1170,8 +1170,29 @@ const state = {
   spotlightIdx: null,  // for spotlight/teams mode
   teamRotation: { gold: 0, fire: 0 }, // which player in team is up
   teamVerdict: null,   // 'correct' | 'wrong' for teams mode
-  doublersNext: new Set() // players who doubled on prior wing — must also eat current if wrong
+  doublersNext: new Set(), // players who doubled on prior wing — must also eat current if wrong
+  history: []           // pre-commit snapshots so BACK from a later wing unwinds stats cleanly
 };
+
+function snapshotState() {
+  return {
+    players: state.players.map(p => ({...p})),
+    sauceIdx: state.sauceIdx,
+    sauceAdvanceThisRound: state.sauceAdvanceThisRound,
+    teamRotation: {...state.teamRotation},
+    doublersNext: new Set(state.doublersNext || []),
+    doublersThisRound: new Set(state.doublersThisRound || [])
+  };
+}
+
+function restoreSnapshot(s) {
+  state.players = s.players.map(p => ({...p}));
+  state.sauceIdx = s.sauceIdx;
+  state.sauceAdvanceThisRound = s.sauceAdvanceThisRound;
+  state.teamRotation = {...s.teamRotation};
+  state.doublersNext = s.doublersNext;
+  state.doublersThisRound = s.doublersThisRound;
+}
 
 // WING SAUCES — Hot Ones Season 28 lineup (escalating heat)
 const SAUCES = [
@@ -1392,6 +1413,7 @@ function startShow() {
   state.sauceIdx = 0;
   state.sauceAdvanceThisRound = false;
   state.doublersNext = new Set();
+  state.history = [];
   goTo('game-screen');
   loadWing();
 }
@@ -1545,8 +1567,12 @@ function phaseNext() {
 
 function phasePrev() {
   if (state.phase === 'question') {
-    if (state.currentWing > 0) { state.currentWing -= 1; loadWing(); }
-    else goTo('setup-screen');
+    if (state.currentWing > 0) {
+      // Roll back the previous wing's commit so scoreboard/sauce reflect pre-commit state.
+      if (state.history.length > 0) restoreSnapshot(state.history.pop());
+      state.currentWing -= 1;
+      loadWing();
+    } else goTo('setup-screen');
   } else if (state.phase === 'answer') setPhase('question');
   else if (state.phase === 'verdict') setPhase('answer');
 }
@@ -1642,7 +1668,7 @@ function renderVerdicts() {
     let cls = "";
     if (v === 'correct') { statusText = "SAFE"; cls = "correct"; }
     if (v === 'wrong')   { statusText = isDoubler ? "EATS × 2" : "EATS THE WING"; cls = "wrong"; }
-    if (v === 'immune')  { statusText = "IMMUNE (DOUBLED)"; cls = "correct"; }
+    if (v === 'immune')  { statusText = "IMMUNE — SAFE"; cls = "correct"; }
     if (isDoubler && !v) cls = "doubled";
     return `<div class="player-verdict ${cls}" onclick="cycleVerdict(${i})">
       <div class="pv-name">${escapeHtml(p.name)}</div>
@@ -1682,6 +1708,9 @@ function cycleVerdict(idx) {
 // COMMIT & ADVANCE
 // =============================================================================
 function commitAndAdvance() {
+  // Snapshot pre-mutation state so BACK from the next wing can fully unwind this commit.
+  state.history.push(snapshotState());
+
   // If the host forgot to mark an expected answerer, default them to 'wrong' — they eat the wing.
   const expected = [];
   if (state.mode === 'spotlight' && state.spotlightIdx != null) {
@@ -1916,6 +1945,7 @@ function resetGame(fullReset) {
   state.sauceAdvanceThisRound = false;
   state.teamRotation = { gold: 0, fire: 0 };
   state.doublersNext = new Set();
+  state.history = [];
   buildWingList();
   goTo('game-screen');
   loadWing();
@@ -1929,7 +1959,7 @@ function confirmExit() {
 // IPAD UX
 // =============================================================================
 document.addEventListener('touchmove', function(e) {
-  if (e.target.closest('.scoreboard') || e.target.closest('#title-screen') || e.target.closest('#setup-screen') || e.target.closest('#mode-screen') || e.target.closest('#finale-screen') || e.target.closest('#editor-screen')) return;
+  if (e.target.closest('.scoreboard') || e.target.closest('#title-screen') || e.target.closest('#setup-screen') || e.target.closest('#mode-screen') || e.target.closest('#game-screen') || e.target.closest('#finale-screen') || e.target.closest('#editor-screen')) return;
   e.preventDefault();
 }, { passive: false });
 
@@ -2204,7 +2234,9 @@ function resolveWildcard(outcome) {
     // Flag so end-of-round sauce logic escalates even if the regular question is answered correctly.
     state.sauceAdvanceThisRound = true;
   } else if (outcome === 'crowd-whiff') {
-    state.players.forEach(p => { if (!p.eliminated) p.immuneNext = true; });
+    // skipNext is honored in loadWing's mode handler — it sets verdict='immune' for every mode,
+    // so the crowd's save actually lands in Classic/Standing/Teams/Double/Gauntlet, not just Spotlight.
+    state.players.forEach(p => { if (!p.eliminated) p.skipNext = true; });
   }
 
   updateWildcardButtonState();
