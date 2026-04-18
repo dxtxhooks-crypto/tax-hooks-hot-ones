@@ -58,14 +58,14 @@
     opacity: 0; pointer-events: none;
     transition: opacity 0.5s ease;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
   }
   .screen.active { opacity: 1; pointer-events: auto; }
 
   /* ===== TITLE SCREEN ===== */
-  #title-screen { align-items: center; justify-content: flex-start; padding: 40px 40px 60px; min-height: 100%; }
-  @media (min-height: 900px) {
-    #title-screen { justify-content: center; }
-  }
+  #title-screen { align-items: center; justify-content: flex-start; padding: 40px 40px 60px; }
   .stars-row { color: var(--gold); letter-spacing: 12px; font-size: 20px; margin-bottom: 30px; animation: shimmer 3s infinite; }
   @keyframes shimmer { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
   .presents { color: var(--gold-bright); font-weight: 700; font-size: 20px; letter-spacing: 14px; text-transform: uppercase; margin-bottom: 8px; text-align: center; }
