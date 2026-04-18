@@ -65,7 +65,8 @@
   .screen.active { opacity: 1; pointer-events: auto; }
 
   /* ===== TITLE SCREEN ===== */
-  #title-screen { align-items: center; justify-content: flex-start; padding: 40px 40px 60px; }
+  #title-screen { display: block; padding: 40px 40px 60px; text-align: center; }
+  #title-screen .gold-line { margin-left: auto; margin-right: auto; }
   .stars-row { color: var(--gold); letter-spacing: 12px; font-size: 20px; margin-bottom: 30px; animation: shimmer 3s infinite; }
   @keyframes shimmer { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
   .presents { color: var(--gold-bright); font-weight: 700; font-size: 20px; letter-spacing: 14px; text-transform: uppercase; margin-bottom: 8px; text-align: center; }
