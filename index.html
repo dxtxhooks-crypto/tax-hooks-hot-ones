@@ -203,6 +203,15 @@
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   .q-hint { color: #666; font-style: italic; font-size: 13px; margin-top: 16px; letter-spacing: 2px; }
+  .hint-reveal {
+    display: none; margin: 20px auto 0; max-width: 720px;
+    background: rgba(200,169,81,0.08); border: 1px solid var(--gold-dim); border-radius: 6px;
+    padding: 14px 18px; color: var(--gold-bright); font-size: 16px; line-height: 1.5;
+    font-style: italic; text-align: center; animation: fadeIn 0.4s;
+  }
+  .hint-reveal.open { display: block; }
+  .hint-reveal::before { content: "💡 HOST HINT — "; font-style: normal; font-weight: 700; letter-spacing: 2px; font-size: 12px; color: var(--gold); }
+  .hint-btn.active { background: rgba(200,169,81,0.2); color: var(--gold-bright); border-color: var(--gold-bright); }
 
   .answer-phase { width: 100%; max-width: 900px; text-align: center; margin: 0 auto; }
   .answer-label { color: var(--fire); font-size: 14px; letter-spacing: 10px; font-weight: 800; margin-bottom: 10px; animation: flashIn 0.5s; }
@@ -647,6 +656,7 @@
         <span class="diff-chip diff-1" id="diff-chip">EASY</span>
       </div>
       <div class="top-bar-right">
+        <button class="icon-btn hint-btn" id="hint-btn" onclick="toggleHint()" style="display:none;">💡 Hint</button>
         <button class="icon-btn wildcard-btn" id="wildcard-btn" onclick="triggerWildcard()">🔥 Wildcard</button>
         <button class="icon-btn" onclick="skipQuestion()">Skip Q</button>
         <button class="icon-btn" onclick="toggleScoreboard()">Score</button>
@@ -663,6 +673,7 @@
             <div class="on-the-spot-name" id="on-the-spot-name"></div>
           </div>
           <div class="q-text" id="q-text">Loading...</div>
+          <div class="hint-reveal" id="hint-reveal"></div>
           <div class="q-hint" id="q-hint">Everyone commits before reveal.</div>
         </div>
       </div>
@@ -853,7 +864,7 @@ window.QUESTIONS = [
   { q: "What gas do plants absorb from the atmosphere?", a: "Carbon dioxide", accept: ["CO2", "carbon dioxide"], cat: "science", diff: 1, note: "CO2 is fine." },
   { q: "What's the hardest natural substance on Earth?", a: "Diamond", cat: "science", diff: 1, note: "Classic." },
   { q: "What's the only mammal capable of true flight?", a: "Bat", accept: ["bats"], cat: "science", diff: 2, note: "Flying squirrels glide. They don't fly." },
-  { q: "What color is a polar bear's skin underneath its fur?", a: "Black", cat: "science", diff: 3, note: "Black skin, translucent fur. Fur only LOOKS white." },
+  { q: "What color is a polar bear's skin underneath its fur?", a: "Black", cat: "science", diff: 3, hint: "Opposite of the fur color. Helps absorb heat.", note: "Black skin, translucent fur. Fur only LOOKS white." },
 
   // ===== GEOGRAPHY =====
   { q: "What is the capital of Australia?", a: "Canberra", cat: "geography", diff: 2, note: "NOT Sydney. Half the room will say Sydney." },
@@ -867,25 +878,25 @@ window.QUESTIONS = [
   { q: "What is the capital of Japan?", a: "Tokyo", cat: "geography", diff: 1, note: "Gimme." },
   { q: "What is the capital of Egypt?", a: "Cairo", cat: "geography", diff: 1, note: "Gimme." },
   { q: "How many U.S. states share a border with Mexico?", a: "4", accept: ["four"], cat: "geography", diff: 2, note: "CA, AZ, NM, TX." },
-  { q: "How many U.S. states share a border with Canada?", a: "13", accept: ["thirteen"], cat: "geography", diff: 3, note: "WA, ID, MT, ND, MN, MI, OH, PA, NY, VT, NH, ME, AK. Yes, Alaska." },
+  { q: "How many U.S. states share a border with Canada?", a: "13", accept: ["thirteen"], cat: "geography", diff: 3, hint: "More than 10. Don't forget Alaska.", note: "WA, ID, MT, ND, MN, MI, OH, PA, NY, VT, NH, ME, AK. Yes, Alaska." },
   { q: "What is the smallest country in the world?", a: "Vatican City", accept: ["the vatican", "vatican"], cat: "geography", diff: 2, note: "Not Monaco. About 109 acres." },
   { q: "What is the largest country in the world by area?", a: "Russia", cat: "geography", diff: 1, note: "Gimme." },
   { q: "What is the longest river in the world?", a: "Nile", accept: ["the nile", "nile river"], cat: "geography", diff: 2, note: "Accept Nile. Amazon is debated but Nile is still the standard answer." },
   { q: "What is the deepest ocean in the world?", a: "Pacific", accept: ["pacific ocean"], cat: "geography", diff: 2, note: "Mariana Trench is in the Pacific." },
-  { q: "How many countries are in Africa?", a: "54", accept: ["fifty-four", "fifty four"], cat: "geography", diff: 3, note: "Sovereign states recognized by the UN." },
-  { q: "How many time zones does Russia span?", a: "11", accept: ["eleven"], cat: "geography", diff: 3, note: "Eleven. More than any other country." },
+  { q: "How many countries are in Africa?", a: "54", accept: ["fifty-four", "fifty four"], cat: "geography", diff: 3, hint: "More than 50, fewer than 60.", note: "Sovereign states recognized by the UN." },
+  { q: "How many time zones does Russia span?", a: "11", accept: ["eleven"], cat: "geography", diff: 3, hint: "Double-digit. Spans 11 zones across its width.", note: "Eleven. More than any other country." },
   { q: "What's the tallest mountain in the world (above sea level)?", a: "Mount Everest", accept: ["everest"], cat: "geography", diff: 1, note: "29,032 feet." },
   { q: "What desert covers most of northern Africa?", a: "Sahara", accept: ["sahara desert"], cat: "geography", diff: 1, note: "Sahara." },
   { q: "What's the largest state in the U.S. by area?", a: "Alaska", cat: "geography", diff: 1, note: "Not Texas. Alaska is more than twice Texas." },
   { q: "What's the smallest state in the U.S. by area?", a: "Rhode Island", cat: "geography", diff: 2, note: "Rhode Island." },
-  { q: "Which U.S. state has the most counties?", a: "Texas", cat: "geography", diff: 3, note: "254 counties." },
+  { q: "Which U.S. state has the most counties?", a: "Texas", cat: "geography", diff: 3, hint: "Everything's bigger here. Over 250 counties.", note: "254 counties." },
   { q: "What is the capital of Spain?", a: "Madrid", cat: "geography", diff: 1, note: "Not Barcelona." },
   { q: "What is the capital of Germany?", a: "Berlin", cat: "geography", diff: 1, note: "Gimme." },
   { q: "What is the capital of Italy?", a: "Rome", cat: "geography", diff: 1, note: "Gimme." },
   { q: "What ocean is the largest?", a: "Pacific", accept: ["pacific ocean"], cat: "geography", diff: 1, note: "Pacific." },
   { q: "What continent is the Amazon rainforest on?", a: "South America", cat: "geography", diff: 1, note: "South America." },
   { q: "What river runs through Paris?", a: "Seine", accept: ["the seine"], cat: "geography", diff: 2, note: "The Seine." },
-  { q: "What country has the most islands?", a: "Sweden", cat: "geography", diff: 3, note: "Around 267,000 islands. Wild." },
+  { q: "What country has the most islands?", a: "Sweden", cat: "geography", diff: 3, hint: "Scandinavian. Over 200,000 islands, mostly tiny.", note: "Around 267,000 islands. Wild." },
 
   // ===== HISTORY =====
   { q: "In what year did World War II end?", a: "1945", cat: "history", diff: 1, note: "Exact year only." },
@@ -905,7 +916,7 @@ window.QUESTIONS = [
   { q: "Who wrote the Declaration of Independence?", a: "Thomas Jefferson", accept: ["jefferson"], cat: "history", diff: 1, note: "Primary author." },
   { q: "What empire was ruled by Julius Caesar?", a: "Roman Empire", accept: ["roman", "rome"], cat: "history", diff: 1, note: "Roman." },
   { q: "What wall was built to keep out the Mongols?", a: "Great Wall of China", accept: ["great wall", "the great wall"], cat: "history", diff: 1, note: "Great Wall." },
-  { q: "What year did the Vietnam War end?", a: "1975", cat: "history", diff: 3, note: "Fall of Saigon." },
+  { q: "What year did the Vietnam War end?", a: "1975", cat: "history", diff: 3, hint: "Mid-70s. Fall of Saigon.", note: "Fall of Saigon." },
   { q: "What ship did the Pilgrims sail to America on?", a: "Mayflower", accept: ["the mayflower"], cat: "history", diff: 1, note: "1620." },
   { q: "What country was the first to land a satellite in orbit?", a: "Soviet Union", accept: ["russia", "ussr", "soviet union"], cat: "history", diff: 2, note: "Sputnik, 1957." },
 
@@ -915,13 +926,13 @@ window.QUESTIONS = [
   { q: "What social media platform was originally called 'thefacebook'?", a: "Facebook", cat: "popculture", diff: 1, note: "Gimme." },
   { q: "Who founded Amazon?", a: "Jeff Bezos", accept: ["bezos"], cat: "business", diff: 1, note: "Bezos." },
   { q: "Who founded Microsoft?", a: "Bill Gates", accept: ["gates", "bill gates and paul allen"], cat: "business", diff: 1, note: "Gates (with Paul Allen)." },
-  { q: "Who founded Tesla?", a: "Martin Eberhard", accept: ["eberhard", "martin eberhard and marc tarpenning"], cat: "business", diff: 3, note: "GOTCHA. Eberhard and Tarpenning founded Tesla. Musk joined later as investor/chairman." },
+  { q: "Who founded Tesla?", a: "Martin Eberhard", accept: ["eberhard", "martin eberhard and marc tarpenning"], cat: "business", diff: 3, hint: "Not Elon — he invested later. Two engineers started it in 2003.", note: "GOTCHA. Eberhard and Tarpenning founded Tesla. Musk joined later as investor/chairman." },
   { q: "What does 'www' stand for in a web address?", a: "World Wide Web", cat: "popculture", diff: 1, note: "Gimme." },
-  { q: "What's the most-followed person on Instagram? (as of 2025)", a: "Cristiano Ronaldo", accept: ["ronaldo"], cat: "popculture", diff: 3, note: "Over 650M followers." },
-  { q: "What's the best-selling book of all time (excluding religious texts)?", a: "Don Quixote", cat: "popculture", diff: 3, note: "500M+ copies. Cervantes." },
+  { q: "What's the most-followed person on Instagram? (as of 2025)", a: "Cristiano Ronaldo", accept: ["ronaldo"], cat: "popculture", diff: 3, hint: "Portuguese soccer star. Plays for Al-Nassr.", note: "Over 650M followers." },
+  { q: "What's the best-selling book of all time (excluding religious texts)?", a: "Don Quixote", cat: "popculture", diff: 3, hint: "17th-century Spanish novel. Windmills, a tall knight, and a short sidekick.", note: "500M+ copies. Cervantes." },
   { q: "What's the best-selling music album of all time?", a: "Thriller", accept: ["michael jackson thriller"], cat: "music", diff: 2, note: "Michael Jackson, 1982." },
   { q: "What year was YouTube founded?", a: "2005", cat: "popculture", diff: 2, note: "February 2005." },
-  { q: "What year did Netflix launch its streaming service?", a: "2007", cat: "popculture", diff: 3, note: "Streaming started in 2007." },
+  { q: "What year did Netflix launch its streaming service?", a: "2007", cat: "popculture", diff: 3, hint: "Mid-2000s. Before they killed Blockbuster.", note: "Streaming started in 2007." },
   { q: "What color is Mickey Mouse's shorts?", a: "Red", cat: "popculture", diff: 1, note: "Red shorts, yellow shoes." },
   { q: "What is Batman's real name?", a: "Bruce Wayne", accept: ["wayne"], cat: "popculture", diff: 1, note: "Bruce Wayne." },
   { q: "What is Superman's real name?", a: "Clark Kent", accept: ["kent", "kal-el"], cat: "popculture", diff: 1, note: "Clark Kent (Kal-El on Krypton)." },
@@ -930,7 +941,7 @@ window.QUESTIONS = [
 
   // ===== MOVIES =====
   { q: "Who directed the movie 'Jaws'?", a: "Steven Spielberg", accept: ["spielberg"], cat: "movies", diff: 2, note: "Spielberg, 1975." },
-  { q: "What movie won Best Picture at the 2023 Oscars?", a: "Everything Everywhere All at Once", cat: "movies", diff: 3, note: "2022 release, 2023 ceremony." },
+  { q: "What movie won Best Picture at the 2023 Oscars?", a: "Everything Everywhere All at Once", cat: "movies", diff: 3, hint: "Multiverse. Bagels. Michelle Yeoh.", note: "2022 release, 2023 ceremony." },
   { q: "What movie won Best Picture at the 2024 Oscars?", a: "Oppenheimer", cat: "movies", diff: 2, note: "Nolan's film." },
   { q: "Who played Iron Man in the Marvel Cinematic Universe?", a: "Robert Downey Jr.", accept: ["robert downey jr", "rdj", "downey"], cat: "movies", diff: 1, note: "RDJ." },
   { q: "What's the highest-grossing film of all time (unadjusted)?", a: "Avatar", cat: "movies", diff: 2, note: "The original Avatar, 2009." },
@@ -938,8 +949,8 @@ window.QUESTIONS = [
   { q: "In what movie does the line 'You had me at hello' appear?", a: "Jerry Maguire", cat: "movies", diff: 2, note: "1996, Tom Cruise." },
   { q: "What's the name of the main character in 'Forrest Gump'?", a: "Forrest Gump", cat: "movies", diff: 1, note: "Gimme." },
   { q: "Who played Jack in 'Titanic'?", a: "Leonardo DiCaprio", accept: ["dicaprio", "leo dicaprio"], cat: "movies", diff: 1, note: "Leo." },
-  { q: "What's the highest-grossing animated film of all time?", a: "Inside Out 2", cat: "movies", diff: 3, note: "As of 2024, Inside Out 2 took the crown." },
-  { q: "What year did 'The Godfather' come out?", a: "1972", cat: "movies", diff: 3, note: "1972. Accept only 1972." },
+  { q: "What's the highest-grossing animated film of all time?", a: "Inside Out 2", cat: "movies", diff: 3, hint: "Pixar sequel, 2024. Feelings are the characters.", note: "As of 2024, Inside Out 2 took the crown." },
+  { q: "What year did 'The Godfather' come out?", a: "1972", cat: "movies", diff: 3, hint: "Early 70s. Brando, Pacino, horse head.", note: "1972. Accept only 1972." },
   { q: "How many Harry Potter films are there (main series)?", a: "8", accept: ["eight"], cat: "movies", diff: 2, note: "Deathly Hallows was split into 2." },
 
   // ===== MUSIC =====
@@ -950,7 +961,7 @@ window.QUESTIONS = [
   { q: "Who is known as the 'Queen of Soul'?", a: "Aretha Franklin", accept: ["aretha"], cat: "music", diff: 2, note: "Aretha." },
   { q: "Who wrote the musical 'Hamilton'?", a: "Lin-Manuel Miranda", accept: ["miranda", "lin manuel miranda"], cat: "music", diff: 2, note: "Lin-Manuel Miranda." },
   { q: "What year did Michael Jackson die?", a: "2009", cat: "music", diff: 2, note: "June 25, 2009." },
-  { q: "How many Grammys has Beyoncé won (as of 2025)?", a: "35", accept: ["thirty-five", "thirty five"], cat: "music", diff: 3, note: "Most Grammys ever won by any artist." },
+  { q: "How many Grammys has Beyoncé won (as of 2025)?", a: "35", accept: ["thirty-five", "thirty five"], cat: "music", diff: 3, hint: "Over 30. She holds the all-time record.", note: "Most Grammys ever won by any artist." },
   { q: "What does 'BPM' stand for in music?", a: "Beats per minute", accept: ["beats per minute"], cat: "music", diff: 2, note: "Beats per minute." },
   { q: "How many notes are in an octave?", a: "8", accept: ["eight"], cat: "music", diff: 2, note: "Eight notes, seven intervals." },
 
@@ -966,9 +977,9 @@ window.QUESTIONS = [
   { q: "What country invented the sport of judo?", a: "Japan", cat: "sports", diff: 2, note: "Japan." },
   { q: "How often are the Summer Olympics held?", a: "Every 4 years", accept: ["4 years", "four years", "every four years"], cat: "sports", diff: 1, note: "Every four years." },
   { q: "Who holds the record for most career home runs in MLB?", a: "Barry Bonds", accept: ["bonds"], cat: "sports", diff: 2, note: "762 home runs." },
-  { q: "In what city were the first modern Olympics held?", a: "Athens", cat: "sports", diff: 3, note: "Athens, 1896." },
+  { q: "In what city were the first modern Olympics held?", a: "Athens", cat: "sports", diff: 3, hint: "Where the ancient Olympics originated — Greek capital.", note: "Athens, 1896." },
   { q: "How many points is a touchdown worth in football?", a: "6", accept: ["six"], cat: "sports", diff: 1, note: "Six (plus the extra point)." },
-  { q: "What's the diameter of a basketball hoop in inches?", a: "18", accept: ["eighteen"], cat: "sports", diff: 3, note: "18 inches." },
+  { q: "What's the diameter of a basketball hoop in inches?", a: "18", accept: ["eighteen"], cat: "sports", diff: 3, hint: "Roughly double a basketball's width. Under 20 inches.", note: "18 inches." },
 
   // ===== FOOD =====
   { q: "What spice gives curry its yellow color?", a: "Turmeric", cat: "food", diff: 2, note: "Turmeric." },
@@ -977,10 +988,10 @@ window.QUESTIONS = [
   { q: "What's the main ingredient in guacamole?", a: "Avocado", cat: "food", diff: 1, note: "Gimme." },
   { q: "What herb is used to make traditional pesto?", a: "Basil", cat: "food", diff: 2, note: "Basil." },
   { q: "What fruit is used to make wine?", a: "Grapes", accept: ["grape"], cat: "food", diff: 1, note: "Gimme." },
-  { q: "Which country consumes the most coffee per capita?", a: "Finland", cat: "food", diff: 3, note: "Finland. Not Italy. Not Brazil." },
+  { q: "Which country consumes the most coffee per capita?", a: "Finland", cat: "food", diff: 3, hint: "Nordic country. Not Italy, not Brazil.", note: "Finland. Not Italy. Not Brazil." },
   { q: "What's the main ingredient in hummus?", a: "Chickpeas", accept: ["garbanzo beans", "chickpea"], cat: "food", diff: 1, note: "Chickpeas (garbanzo beans)." },
   { q: "What kind of pastry is used in a traditional croissant?", a: "Puff pastry", accept: ["laminated dough", "puff pastry dough"], cat: "food", diff: 2, note: "Laminated/puff pastry." },
-  { q: "What spicy pepper is named after a Mexican state?", a: "Habanero", cat: "food", diff: 3, note: "From Havana? Nope, named because of Havana trade routes." },
+  { q: "What spicy pepper is named after a Mexican state?", a: "Habanero", cat: "food", diff: 3, hint: "Named after Havana-area trade routes. Often orange or red.", note: "From Havana? Nope, named because of Havana trade routes." },
 
   // ===== BUSINESS / MONEY =====
   { q: "What does IPO stand for?", a: "Initial Public Offering", cat: "business", diff: 2, note: "Initial Public Offering." },
@@ -1000,14 +1011,14 @@ window.QUESTIONS = [
   { q: "What tax form reports contractor income in the U.S.?", a: "1099", accept: ["form 1099", "1099-NEC"], cat: "business", diff: 2, note: "1099 (NEC or MISC)." },
 
   // ===== WEIRD / TRIVIA =====
-  { q: "What is the only number spelled with its letters in alphabetical order?", a: "Forty", cat: "weird", diff: 3, note: "F-O-R-T-Y. No other number works." },
-  { q: "How many bones are babies born with?", a: "270", accept: ["about 270", "around 270", "approximately 270"], cat: "science", diff: 3, note: "About 270. They fuse into 206." },
-  { q: "What's the only country that borders both France and Spain?", a: "Andorra", cat: "geography", diff: 3, note: "Andorra. Also Monaco doesn't border Spain." },
-  { q: "What's the tallest mountain in the world measured base-to-peak?", a: "Mauna Kea", cat: "geography", diff: 3, note: "Mauna Kea beats Everest when you start from the ocean floor." },
-  { q: "What's the most venomous creature on Earth?", a: "Box jellyfish", accept: ["jellyfish", "sea wasp"], cat: "science", diff: 3, note: "Box jellyfish. Kills in minutes." },
-  { q: "How many lungs does a snake have?", a: "1", accept: ["one"], cat: "science", diff: 3, note: "Usually just one functional lung." },
+  { q: "What is the only number spelled with its letters in alphabetical order?", a: "Forty", cat: "weird", diff: 3, hint: "Between 30 and 50. F, O, R, T, Y.", note: "F-O-R-T-Y. No other number works." },
+  { q: "How many bones are babies born with?", a: "270", accept: ["about 270", "around 270", "approximately 270"], cat: "science", diff: 3, hint: "More than adults. Many fuse together as they grow.", note: "About 270. They fuse into 206." },
+  { q: "What's the only country that borders both France and Spain?", a: "Andorra", cat: "geography", diff: 3, hint: "Tiny. In the Pyrenees. Tax haven and ski destination.", note: "Andorra. Also Monaco doesn't border Spain." },
+  { q: "What's the tallest mountain in the world measured base-to-peak?", a: "Mauna Kea", cat: "geography", diff: 3, hint: "Hawaiian volcano. Most of it is underwater.", note: "Mauna Kea beats Everest when you start from the ocean floor." },
+  { q: "What's the most venomous creature on Earth?", a: "Box jellyfish", accept: ["jellyfish", "sea wasp"], cat: "science", diff: 3, hint: "Aquatic. Translucent. Australian waters.", note: "Box jellyfish. Kills in minutes." },
+  { q: "How many lungs does a snake have?", a: "1", accept: ["one"], cat: "science", diff: 3, hint: "Just one functional one; the other is vestigial.", note: "Usually just one functional lung." },
   { q: "How many stomachs does a cow have?", a: "4", accept: ["four"], cat: "science", diff: 2, note: "Four chambers: rumen, reticulum, omasum, abomasum." },
-  { q: "What's the only letter not used in any U.S. state name?", a: "Q", cat: "weird", diff: 3, note: "Q. Check them all — not one." },
+  { q: "What's the only letter not used in any U.S. state name?", a: "Q", cat: "weird", diff: 3, hint: "Uncommon in English overall. Usually paired with U.", note: "Q. Check them all — not one." },
   { q: "How many Great Lakes are there?", a: "5", accept: ["five"], cat: "geography", diff: 1, note: "HOMES — Huron, Ontario, Michigan, Erie, Superior." },
   { q: "What's the fastest land animal?", a: "Cheetah", cat: "science", diff: 1, note: "Cheetah." },
   { q: "What's the largest mammal on Earth?", a: "Blue whale", accept: ["whale", "blue whale"], cat: "science", diff: 1, note: "Blue whale." },
@@ -1021,24 +1032,24 @@ window.QUESTIONS = [
   { q: "How many sides does a dodecagon have?", a: "12", accept: ["twelve"], cat: "general", diff: 2, note: "Dodeca = twelve." },
   { q: "What Roman numeral represents 50?", a: "L", cat: "general", diff: 2, note: "L." },
   { q: "What Roman numeral represents 1000?", a: "M", cat: "general", diff: 2, note: "M." },
-  { q: "What is 7 factorial (7!)?", a: "5040", cat: "general", diff: 3, note: "7 × 6 × 5 × 4 × 3 × 2 × 1 = 5040." },
-  { q: "What's the only U.S. state that begins with two vowels?", a: "Iowa", cat: "geography", diff: 3, note: "Iowa." },
-  { q: "What's the national animal of Scotland?", a: "Unicorn", cat: "weird", diff: 3, note: "Yes. The unicorn. Look it up." },
+  { q: "What is 7 factorial (7!)?", a: "5040", cat: "general", diff: 3, hint: "7 × 6 × 5 × 4 × 3 × 2 × 1. Four digits.", note: "7 × 6 × 5 × 4 × 3 × 2 × 1 = 5040." },
+  { q: "What's the only U.S. state that begins with two vowels?", a: "Iowa", cat: "geography", diff: 3, hint: "Midwestern, corn country, famous caucuses.", note: "Iowa." },
+  { q: "What's the national animal of Scotland?", a: "Unicorn", cat: "weird", diff: 3, hint: "Mythical. One horn.", note: "Yes. The unicorn. Look it up." },
   { q: "How many ribs does a typical adult human have?", a: "24", accept: ["twenty-four", "twenty four", "12 pairs"], cat: "science", diff: 2, note: "12 pairs = 24 ribs." },
-  { q: "What's the only mammal that can't jump?", a: "Elephant", cat: "science", diff: 3, note: "Elephants can't jump." },
+  { q: "What's the only mammal that can't jump?", a: "Elephant", cat: "science", diff: 3, hint: "Largest land mammal. Too heavy to lift all four legs.", note: "Elephants can't jump." },
   { q: "What's the largest organ in the human body?", a: "Skin", accept: ["the skin"], cat: "science", diff: 2, note: "Skin. Bigger than anything inside." },
   { q: "What percentage of the human body is water (approximately)?", a: "60%", accept: ["60", "sixty percent", "55-60%", "around 60"], cat: "science", diff: 2, note: "About 60% for adults." },
   { q: "How many chambers are in the human heart?", a: "4", accept: ["four"], cat: "science", diff: 1, note: "Four. Two atria, two ventricles." },
-  { q: "What's the smallest bone in the human body?", a: "Stapes", accept: ["stirrup", "the stapes", "ear bone"], cat: "science", diff: 3, note: "Stapes (stirrup bone) in the ear." },
+  { q: "What's the smallest bone in the human body?", a: "Stapes", accept: ["stirrup", "the stapes", "ear bone"], cat: "science", diff: 3, hint: "In the middle ear. Shaped like a stirrup.", note: "Stapes (stirrup bone) in the ear." },
 
   // ===== MORE GENERAL / FUN =====
   { q: "What do you call a group of lions?", a: "Pride", accept: ["a pride", "pride of lions"], cat: "weird", diff: 1, note: "Pride." },
   { q: "What do you call a group of crows?", a: "Murder", accept: ["a murder", "murder of crows"], cat: "weird", diff: 2, note: "Murder." },
   { q: "What do you call a baby kangaroo?", a: "Joey", cat: "weird", diff: 1, note: "Joey." },
-  { q: "What do you call a baby swan?", a: "Cygnet", cat: "weird", diff: 3, note: "Cygnet." },
+  { q: "What do you call a baby swan?", a: "Cygnet", cat: "weird", diff: 3, hint: "Rhymes with 'signet.' Starts with C.", note: "Cygnet." },
   { q: "What's the national flower of Japan?", a: "Cherry blossom", accept: ["sakura", "cherry blossoms"], cat: "geography", diff: 2, note: "Cherry blossom (sakura)." },
-  { q: "What's the longest word in standard English dictionaries?", a: "Pneumonoultramicroscopicsilicovolcanoconiosis", cat: "weird", diff: 3, note: "45 letters. A lung disease." },
-  { q: "In what year did the Euro become an official currency?", a: "1999", cat: "business", diff: 3, note: "1999 (digital), 2002 (physical)." },
+  { q: "What's the longest word in standard English dictionaries?", a: "Pneumonoultramicroscopicsilicovolcanoconiosis", cat: "weird", diff: 3, hint: "45 letters. A lung disease from inhaling volcanic silica dust.", note: "45 letters. A lung disease." },
+  { q: "In what year did the Euro become an official currency?", a: "1999", cat: "business", diff: 3, hint: "Late 90s. Coins and bills came three years later.", note: "1999 (digital), 2002 (physical)." },
   { q: "What does 'HTTP' stand for?", a: "Hypertext Transfer Protocol", cat: "business", diff: 2, note: "Hypertext Transfer Protocol." },
   { q: "What does 'PDF' stand for?", a: "Portable Document Format", cat: "business", diff: 2, note: "Portable Document Format." },
   { q: "Who painted the Mona Lisa?", a: "Leonardo da Vinci", accept: ["da vinci", "leonardo"], cat: "history", diff: 1, note: "Da Vinci." },
@@ -1051,17 +1062,17 @@ window.QUESTIONS = [
   { q: "What famous scientist developed the theory of general relativity?", a: "Albert Einstein", accept: ["einstein"], cat: "science", diff: 1, note: "Einstein." },
   { q: "Who was the first woman to win a Nobel Prize?", a: "Marie Curie", accept: ["curie", "madame curie"], cat: "history", diff: 2, note: "Marie Curie, 1903." },
   { q: "How many teeth does an adult human typically have?", a: "32", accept: ["thirty-two", "thirty two"], cat: "science", diff: 2, note: "32 (including wisdom teeth)." },
-  { q: "What's the most common blood type?", a: "O positive", accept: ["o+", "o", "type o"], cat: "science", diff: 3, note: "O positive is most common." },
-  { q: "What's the world's fastest fish?", a: "Sailfish", cat: "science", diff: 3, note: "Sailfish — up to 68 mph." },
+  { q: "What's the most common blood type?", a: "O positive", accept: ["o+", "o", "type o"], cat: "science", diff: 3, hint: "Universal donor's cousin. Has a positive sign.", note: "O positive is most common." },
+  { q: "What's the world's fastest fish?", a: "Sailfish", cat: "science", diff: 3, hint: "Named after the fin on its back.", note: "Sailfish — up to 68 mph." },
   { q: "How many minutes are in a day?", a: "1440", cat: "general", diff: 2, note: "24 × 60 = 1440." },
   { q: "How many seconds are in an hour?", a: "3600", cat: "general", diff: 2, note: "60 × 60 = 3600." },
   { q: "What's the official language of Brazil?", a: "Portuguese", cat: "geography", diff: 2, note: "Portuguese. NOT Spanish. Lots of people mess this up." },
   { q: "What's the most spoken first language in the world?", a: "Mandarin", accept: ["mandarin chinese", "chinese"], cat: "geography", diff: 2, note: "Mandarin Chinese." },
   { q: "How many moons does Mars have?", a: "2", accept: ["two"], cat: "science", diff: 2, note: "Two — Phobos and Deimos." },
-  { q: "How many moons does Jupiter have (confirmed, as of 2024)?", a: "95", accept: ["ninety-five", "over 90", "more than 90"], cat: "science", diff: 3, note: "95 confirmed moons. Number keeps going up." },
+  { q: "How many moons does Jupiter have (confirmed, as of 2024)?", a: "95", accept: ["ninety-five", "over 90", "more than 90"], cat: "science", diff: 3, hint: "Just under 100.", note: "95 confirmed moons. Number keeps going up." },
   { q: "What planet is known as the 'Red Planet'?", a: "Mars", cat: "science", diff: 1, note: "Mars." },
   { q: "What planet has the most rings?", a: "Saturn", cat: "science", diff: 1, note: "Saturn." },
-  { q: "How long is one lunar cycle (full moon to full moon), in days?", a: "29.5", accept: ["29", "30", "about 29", "about 30", "29.5 days"], cat: "science", diff: 3, note: "About 29.5 days." },
+  { q: "How long is one lunar cycle (full moon to full moon), in days?", a: "29.5", accept: ["29", "30", "about 29", "about 30", "29.5 days"], cat: "science", diff: 3, hint: "Close to a month. Between 29 and 30.", note: "About 29.5 days." },
   { q: "What element is number 1 on the periodic table?", a: "Hydrogen", cat: "science", diff: 1, note: "Hydrogen." },
   { q: "What element does the symbol 'Fe' represent?", a: "Iron", cat: "science", diff: 2, note: "Iron (from Latin 'ferrum')." },
   { q: "What's the boiling point of water in Fahrenheit?", a: "212", accept: ["212 degrees", "212°", "212 f"], cat: "science", diff: 1, note: "212°F." },
@@ -1069,7 +1080,7 @@ window.QUESTIONS = [
   { q: "What's the freezing point of water in Celsius?", a: "0", accept: ["zero", "0 degrees", "0°"], cat: "science", diff: 1, note: "0°C." },
   { q: "How many colors are in a rainbow?", a: "7", accept: ["seven"], cat: "general", diff: 1, note: "ROYGBIV." },
   { q: "What planet is closest to Earth?", a: "Venus", cat: "science", diff: 2, note: "Venus on average, though Mercury gets closer at certain moments." },
-  { q: "What year did the Cold War end?", a: "1991", cat: "history", diff: 3, note: "1991 with the fall of the Soviet Union." },
+  { q: "What year did the Cold War end?", a: "1991", cat: "history", diff: 3, hint: "Early 90s. Same year the USSR dissolved.", note: "1991 with the fall of the Soviet Union." },
   { q: "What is the largest ocean on Earth?", a: "Pacific", accept: ["pacific ocean"], cat: "geography", diff: 1, note: "Pacific." },
   { q: "What's the capital of South Korea?", a: "Seoul", cat: "geography", diff: 1, note: "Seoul." },
   { q: "What's the capital of North Korea?", a: "Pyongyang", cat: "geography", diff: 2, note: "Pyongyang." },
@@ -1080,10 +1091,10 @@ window.QUESTIONS = [
   // ===== MORE SPORTS =====
   { q: "What U.S. city has teams named the Cowboys, Mavericks, and Stars?", a: "Dallas", cat: "sports", diff: 2, note: "Dallas." },
   { q: "How many rings on the Olympic flag?", a: "5", accept: ["five"], cat: "sports", diff: 1, note: "Five, one per continent." },
-  { q: "What year were the first modern Olympic Games held?", a: "1896", cat: "sports", diff: 3, note: "1896 in Athens." },
-  { q: "What's the only team to go undefeated in an NFL season and win the Super Bowl?", a: "1972 Miami Dolphins", accept: ["miami dolphins", "dolphins"], cat: "sports", diff: 3, note: "1972 Dolphins." },
+  { q: "What year were the first modern Olympic Games held?", a: "1896", cat: "sports", diff: 3, hint: "Late 1800s. Athens.", note: "1896 in Athens." },
+  { q: "What's the only team to go undefeated in an NFL season and win the Super Bowl?", a: "1972 Miami Dolphins", accept: ["miami dolphins", "dolphins"], cat: "sports", diff: 3, hint: "AFC East team. Early 70s. Their alumni pop champagne every year.", note: "1972 Dolphins." },
   { q: "In tennis, what's the term for zero points?", a: "Love", cat: "sports", diff: 1, note: "Love." },
-  { q: "What's the maximum break in snooker?", a: "147", cat: "sports", diff: 3, note: "147 — 15 reds, 15 blacks, all six colors." },
+  { q: "What's the maximum break in snooker?", a: "147", cat: "sports", diff: 3, hint: "Triple digits. 15 reds × 8 points, plus all the colors.", note: "147 — 15 reds, 15 blacks, all six colors." },
 
   // ===== MORE POP CULTURE / MOVIES =====
   { q: "What's the name of the coffee shop in 'Friends'?", a: "Central Perk", cat: "popculture", diff: 1, note: "Central Perk." },
@@ -1094,17 +1105,17 @@ window.QUESTIONS = [
   { q: "Who wrote 'The Lord of the Rings'?", a: "J.R.R. Tolkien", accept: ["tolkien", "jrr tolkien"], cat: "popculture", diff: 1, note: "Tolkien." },
   { q: "Who plays Walter White in 'Breaking Bad'?", a: "Bryan Cranston", accept: ["cranston"], cat: "popculture", diff: 2, note: "Bryan Cranston." },
   { q: "What's the name of Rick's grandson in 'Rick and Morty'?", a: "Morty", cat: "popculture", diff: 1, note: "Morty Smith." },
-  { q: "In what year did 'The Simpsons' first air on TV?", a: "1989", cat: "popculture", diff: 3, note: "December 1989." },
+  { q: "In what year did 'The Simpsons' first air on TV?", a: "1989", cat: "popculture", diff: 3, hint: "Late 80s. Same year the Berlin Wall fell.", note: "December 1989." },
   { q: "Who played the Joker in 'The Dark Knight' (2008)?", a: "Heath Ledger", accept: ["ledger"], cat: "movies", diff: 2, note: "Heath Ledger." },
 
   // ===== BONUS / ODDBALLS =====
   { q: "What's the largest living bird?", a: "Ostrich", cat: "science", diff: 2, note: "Ostrich." },
-  { q: "What's the national sport of Japan?", a: "Sumo wrestling", accept: ["sumo"], cat: "sports", diff: 3, note: "Sumo." },
+  { q: "What's the national sport of Japan?", a: "Sumo wrestling", accept: ["sumo"], cat: "sports", diff: 3, hint: "Heavyweight wrestlers. Salt-throwing ritual. Circular ring.", note: "Sumo." },
   { q: "How many zeros are in one million?", a: "6", accept: ["six"], cat: "general", diff: 1, note: "Six." },
   { q: "How many zeros are in one billion (short scale)?", a: "9", accept: ["nine"], cat: "general", diff: 2, note: "Nine — thousand million." },
   { q: "What does 'NASA' stand for?", a: "National Aeronautics and Space Administration", cat: "science", diff: 2, note: "NASA — National Aeronautics and Space Administration." },
   { q: "What does 'FBI' stand for?", a: "Federal Bureau of Investigation", cat: "business", diff: 1, note: "Federal Bureau of Investigation." },
-  { q: "What does 'DNA' stand for?", a: "Deoxyribonucleic acid", cat: "science", diff: 3, note: "Deoxyribonucleic acid." },
+  { q: "What does 'DNA' stand for?", a: "Deoxyribonucleic acid", cat: "science", diff: 3, hint: "D is 'deoxy-' something. Ends in 'acid.'", note: "Deoxyribonucleic acid." },
   { q: "Who is the current Pope (as of 2025)?", a: "Pope Francis", accept: ["francis"], cat: "popculture", diff: 2, note: "Pope Francis since 2013." },
   { q: "What's the longest reigning British monarch in history?", a: "Queen Elizabeth II", accept: ["elizabeth ii", "elizabeth the second", "queen elizabeth"], cat: "history", diff: 2, note: "70 years, 214 days." },
   { q: "Who is the current British monarch (as of 2025)?", a: "King Charles III", accept: ["charles iii", "charles", "king charles"], cat: "history", diff: 2, note: "Charles III since 2022." },
@@ -1113,7 +1124,7 @@ window.QUESTIONS = [
   { q: "How many days are in a leap year?", a: "366", cat: "general", diff: 1, note: "366." },
   { q: "How many sides does a hexagon have?", a: "6", accept: ["six"], cat: "general", diff: 1, note: "Six." },
   { q: "How many sides does an octagon have?", a: "8", accept: ["eight"], cat: "general", diff: 1, note: "Eight." },
-  { q: "What's the name of the longest river in the U.S.?", a: "Missouri River", accept: ["missouri"], cat: "geography", diff: 3, note: "Missouri. Not the Mississippi." }
+  { q: "What's the name of the longest river in the U.S.?", a: "Missouri River", accept: ["missouri"], cat: "geography", diff: 3, hint: "Tributary that joins the Mississippi. Technically longer than it.", note: "Missouri. Not the Mississippi." }
 ];
 
 </script>
@@ -1149,18 +1160,18 @@ const state = {
   doublersNext: new Set() // players who doubled on prior wing — must also eat current if wrong
 };
 
-// WING SAUCES — escalating heat (same 10, repeated or extended for longer games)
+// WING SAUCES — Hot Ones Season 28 lineup (escalating heat)
 const SAUCES = [
-  { sauce: "Chili Maple",        shu: "1,500" },
-  { sauce: "Pineapple Habanero", shu: "3,000" },
-  { sauce: "Los Calientes Verde",shu: "15,600" },
-  { sauce: "Hot Nashville",      shu: "25,000" },
-  { sauce: "Pico Rico",          shu: "37,800" },
-  { sauce: "Turmeric Bomb",      shu: "104,000" },
-  { sauce: "Los Calientes Rojo", shu: "156,000" },
-  { sauce: "Da Bomb",            shu: "135,600" },
-  { sauce: "Mad Dog 357",        shu: "357,000" },
-  { sauce: "THE LAST DAB",       shu: "2,000,000+" }
+  { sauce: "Coffee Date",                shu: "1,900" },
+  { sauce: "Crema Macha",                shu: "5,500" },
+  { sauce: "Pickled Garlic Sriracha",    shu: "18,000" },
+  { sauce: "Passiflora Fire",            shu: "28,000" },
+  { sauce: "Chimichurri Habanero",       shu: "48,000" },
+  { sauce: "Tropical Amarillo",          shu: "69,000" },
+  { sauce: "P.O.G²",                     shu: "110,000" },
+  { sauce: "Da Bomb Evolution",          shu: "135,000" },
+  { sauce: "Funken Yellow",              shu: "670,000" },
+  { sauce: "THE LAST DAB: THERMAGEDDON", shu: "2,000,000+" }
 ];
 
 function getSauceForWing(wingIdx, total) {
@@ -1391,6 +1402,18 @@ function loadWing() {
   document.getElementById('answer-text').textContent = q.a;
   document.getElementById('answer-accept').textContent = q.accept ? `Also accept: ${q.accept.join(', ')}` : '';
   document.getElementById('answer-note').textContent = q.note || '';
+
+  const hintBtn = document.getElementById('hint-btn');
+  const hintReveal = document.getElementById('hint-reveal');
+  hintReveal.classList.remove('open');
+  hintBtn.classList.remove('active');
+  if (q.hint) {
+    hintReveal.textContent = q.hint;
+    hintBtn.style.display = '';
+  } else {
+    hintReveal.textContent = '';
+    hintBtn.style.display = 'none';
+  }
 
   // Reset verdicts
   state.verdicts = {};
@@ -1735,6 +1758,13 @@ function toggleScoreboard() {
   sb.classList.toggle('open');
   if (bd) bd.classList.toggle('open');
   if (sb.classList.contains('open')) renderScoreboard();
+}
+
+function toggleHint() {
+  const reveal = document.getElementById('hint-reveal');
+  const btn = document.getElementById('hint-btn');
+  const open = reveal.classList.toggle('open');
+  btn.classList.toggle('active', open);
 }
 
 function renderScoreboard() {
