@@ -386,12 +386,17 @@
     flex-wrap: wrap; z-index: 2; position: relative;
   }
   .wc-verdict-btn {
-    padding: 28px 40px; font-weight: 800; font-size: 20px;
+    padding: 24px 32px; font-weight: 800; font-size: 20px;
     letter-spacing: 4px; text-transform: uppercase;
     border-radius: 6px; cursor: pointer; font-family: inherit;
-    min-width: 280px; transition: transform 0.15s;
+    min-width: 300px; transition: transform 0.15s;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
   }
   .wc-verdict-btn:active { transform: scale(0.97); }
+  .wc-verdict-consequence {
+    font-size: 12px; font-weight: 600; letter-spacing: 1.5px;
+    text-transform: none; opacity: 0.85; line-height: 1.35;
+  }
   .wc-verdict-btn.crowd-win {
     background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep));
     color: var(--black); border: 3px solid var(--gold-bright);
@@ -834,12 +839,18 @@
       <div class="wc-answer-reveal" id="wc-answer">—</div>
       <div class="wc-instructions" id="wc-answer-note" style="font-style:italic; color:#ccc;"></div>
       <div class="wc-verdict-buttons">
-        <button class="wc-verdict-btn crowd-win" onclick="resolveWildcard('crowd-win')">CROWD GOT IT</button>
-        <button class="wc-verdict-btn crowd-whiff" onclick="resolveWildcard('crowd-whiff')">CROWD WHIFFED</button>
+        <button class="wc-verdict-btn crowd-win" onclick="resolveWildcard('crowd-win')">
+          CROWD GOT IT
+          <span class="wc-verdict-consequence" id="wc-consequence-win"></span>
+        </button>
+        <button class="wc-verdict-btn crowd-whiff" onclick="resolveWildcard('crowd-whiff')">
+          CROWD WHIFFED
+          <span class="wc-verdict-consequence" id="wc-consequence-whiff"></span>
+        </button>
       </div>
     </div>
 
-    <div class="wc-counter" id="wc-counter">WILDCARDS USED: 0 / 3</div>
+    <div class="wc-counter" id="wc-counter">WILDCARDS USED: 0 / 0</div>
   </div>
 
 </div>
@@ -1153,6 +1164,7 @@ const state = {
   wingList: [],        // selected questions for this game
   currentWing: 0,
   sauceIdx: 0,         // sauce ladder (0..8, Last Dab reserved for final wing); advances only when someone ate last round
+  sauceAdvanceThisRound: false, // set true when a wildcard eat already earned next round's escalation
   phase: 'question',
   verdicts: {},        // per-player verdict for current wing
   spotlightIdx: null,  // for spotlight/teams mode
@@ -1378,6 +1390,7 @@ function startShow() {
   }
   state.currentWing = 0;
   state.sauceIdx = 0;
+  state.sauceAdvanceThisRound = false;
   state.doublersNext = new Set();
   goTo('game-screen');
   loadWing();
@@ -1425,6 +1438,7 @@ function loadWing() {
   handleModeQuestionStart();
 
   setPhase('question');
+  updateWildcardButtonState();
 }
 
 function handleModeQuestionStart() {
@@ -1734,9 +1748,10 @@ function commitAndAdvance() {
 
   state.doublersThisRound = new Set();
 
-  // Sauce only escalates if someone ate a wing this round. All-safe holds the sauce.
+  // Sauce only escalates if someone ate a wing this round (regular or via wildcard). All-safe holds the sauce.
   const anyAte = Object.values(state.verdicts).some(v => v === 'wrong');
-  if (anyAte && state.sauceIdx < 8) state.sauceIdx += 1;
+  if ((anyAte || state.sauceAdvanceThisRound) && state.sauceIdx < 8) state.sauceIdx += 1;
+  state.sauceAdvanceThisRound = false;
 
   // Check end conditions
   if (state.mode === 'standing') {
@@ -1898,6 +1913,7 @@ function resetGame(fullReset) {
   state.players.forEach(p => { p.wings = 0; p.correct = 0; p.strikes = 0; p.eliminated = false; p.immuneNext = false; p.skipNext = false; });
   state.currentWing = 0;
   state.sauceIdx = 0;
+  state.sauceAdvanceThisRound = false;
   state.teamRotation = { gold: 0, fire: 0 };
   state.doublersNext = new Set();
   buildWingList();
@@ -2100,15 +2116,49 @@ function importCustomBank(event) {
 // =============================================================================
 // AUDIENCE WILDCARD
 // =============================================================================
-const MAX_WILDCARDS = 3;
+const WILDCARD_PER_WINGS = 5; // ~1 wildcard for every 5 wings
 let wildcardsUsed = 0;
 let wildcardQuestion = null;
 
-function triggerWildcard() {
-  if (wildcardsUsed >= MAX_WILDCARDS) {
-    alert(`Max ${MAX_WILDCARDS} wildcards per game.`);
-    return;
+function maxWildcards() {
+  return Math.max(1, Math.floor((state.wingCount || 10) / WILDCARD_PER_WINGS));
+}
+
+function updateWildcardButtonState() {
+  const btn = document.getElementById('wildcard-btn');
+  if (!btn) return;
+  if (state.mode === 'gauntlet') { btn.style.display = 'none'; return; }
+  btn.style.display = '';
+  const isFinal = state.currentWing === state.wingCount - 1;
+  const outOfCharges = wildcardsUsed >= maxWildcards();
+  btn.disabled = isFinal || outOfCharges;
+}
+
+function describeWildcardConsequences() {
+  const active = state.players.filter(p => !p.eliminated).length;
+  const n = active;
+  const who = n === 1 ? 'the contestant' : `all ${n} contestants`;
+  let winLine;
+  if (state.mode === 'standing') {
+    winLine = `${who} eat a wing +1 strike`;
+  } else {
+    winLine = `${who} eat a wing`;
   }
+  // Sauce preview — bump to next unless already pinned at slot 8
+  const nextSauce = SAUCES[Math.min(state.sauceIdx + 1, 8)].sauce;
+  const sauceLine = state.sauceIdx < 8 ? ` · sauce next round → ${nextSauce}` : '';
+  const whiffLine = `${who} immune next wing`;
+  document.getElementById('wc-consequence-win').textContent = winLine + sauceLine;
+  document.getElementById('wc-consequence-whiff').textContent = whiffLine;
+}
+
+function triggerWildcard() {
+  if (state.mode === 'gauntlet') { alert('Wildcards are disabled in Gauntlet mode.'); return; }
+  if (state.phase !== 'question') { alert('Trigger the wildcard before revealing the answer.'); return; }
+  if (state.currentWing === state.wingCount - 1) { alert('No wildcards on the final wing — let the Last Dab cook.'); return; }
+  const max = maxWildcards();
+  if (wildcardsUsed >= max) { alert(`Max ${max} wildcard${max === 1 ? '' : 's'} for a ${state.wingCount}-wing game.`); return; }
+
   const usedQs = new Set(state.wingList.map(q => q.q));
   const customBank = loadCustomBank();
   const includeCustomEl = document.getElementById('include-custom');
@@ -2121,7 +2171,9 @@ function triggerWildcard() {
   document.getElementById('wc-question').textContent = wildcardQuestion.q;
   document.getElementById('wc-answer').textContent = wildcardQuestion.a;
   document.getElementById('wc-answer-note').textContent = wildcardQuestion.note || '';
-  document.getElementById('wc-counter').textContent = `WILDCARDS USED: ${wildcardsUsed} / ${MAX_WILDCARDS}`;
+  document.getElementById('wc-counter').textContent = `WILDCARDS USED: ${wildcardsUsed} / ${max}`;
+
+  describeWildcardConsequences();
 
   document.getElementById('wc-phase-vote').style.display = 'block';
   document.getElementById('wc-phase-verdict').style.display = 'none';
@@ -2136,7 +2188,8 @@ function revealWildcardAnswer() {
 
 function resolveWildcard(outcome) {
   wildcardsUsed += 1;
-  document.getElementById('wc-counter').textContent = `WILDCARDS USED: ${wildcardsUsed} / ${MAX_WILDCARDS}`;
+  const max = maxWildcards();
+  document.getElementById('wc-counter').textContent = `WILDCARDS USED: ${wildcardsUsed} / ${max}`;
 
   if (outcome === 'crowd-win') {
     state.players.forEach(p => {
@@ -2148,14 +2201,13 @@ function resolveWildcard(outcome) {
         }
       }
     });
+    // Flag so end-of-round sauce logic escalates even if the regular question is answered correctly.
+    state.sauceAdvanceThisRound = true;
   } else if (outcome === 'crowd-whiff') {
     state.players.forEach(p => { if (!p.eliminated) p.immuneNext = true; });
   }
 
-  if (wildcardsUsed >= MAX_WILDCARDS) {
-    document.getElementById('wildcard-btn').disabled = true;
-  }
-
+  updateWildcardButtonState();
   closeWildcard();
   if (state.phase === 'verdict') renderVerdicts();
 }
@@ -2169,19 +2221,15 @@ function closeWildcard() {
 const _origStartShow = startShow;
 startShow = function() {
   wildcardsUsed = 0;
-  const wb = document.getElementById('wildcard-btn');
-  if (wb) wb.disabled = false;
   _origStartShow.apply(this, arguments);
+  updateWildcardButtonState();
 };
 
 const _origResetGame = resetGame;
 resetGame = function(full) {
-  if (!full) {
-    wildcardsUsed = 0;
-    const wb = document.getElementById('wildcard-btn');
-    if (wb) wb.disabled = false;
-  }
+  if (!full) wildcardsUsed = 0;
   _origResetGame.apply(this, arguments);
+  if (!full) updateWildcardButtonState();
 };
 </script>
 </body>
