@@ -119,6 +119,9 @@
   .mode-name { color: var(--gold-bright); font-weight: 800; font-size: 22px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px; }
   .mode-desc { color: var(--white); font-size: 14px; line-height: 1.5; opacity: 0.85; margin-bottom: 12px; }
   .mode-tag { display: inline-block; padding: 4px 10px; background: rgba(0,0,0,0.4); color: var(--gold); font-size: 11px; letter-spacing: 2px; font-weight: 700; border-radius: 10px; border: 1px solid var(--gold-dim); }
+  .mode-players { margin-top: 10px; color: var(--gold-bright); font-size: 12px; letter-spacing: 2px; font-weight: 700; text-transform: uppercase; opacity: 0.85; }
+  .mode-players::before { content: "★ BEST FOR "; color: var(--gold); opacity: 0.7; }
+  .mode-players::after { content: " PLAYERS"; color: var(--gold); opacity: 0.7; }
 
   .options-panel { max-width: 900px; margin: 24px auto; width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--gold-dim); border-radius: 8px; padding: 20px; }
   .option-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--ash); flex-wrap: wrap; gap: 12px; }
@@ -1228,12 +1231,12 @@ window.QUESTIONS = [
 // GAME MODES
 // =============================================================================
 const MODES = [
-  { id: 'classic',   name: 'Classic',         desc: "Host asks the question. Everyone answers. Wrong answers eat the wing. Right answers abstain and look smug.", tag: "THE STANDARD" },
-  { id: 'standing',  name: 'Last One Standing', desc: "Everyone plays every wing. Three wrong answers and you're eliminated. Last person not out wins.", tag: "ELIMINATION" },
-  { id: 'teams',     name: 'Team vs Team',    desc: "Two teams, one captain answers per wing (rotating). Wrong team eats. First team to 5 wings eaten loses.", tag: "TEAM MODE" },
-  { id: 'double',    name: 'Double or Nothing', desc: "Before each question, any player can double down. Right = skip next wing too. Wrong = eat this AND the next.", tag: "HIGH STAKES" },
-  { id: 'spotlight', name: "Host's Choice",   desc: "Host picks one person per wing to answer. Right = immunity next round. Wrong = eat. Strategic targeting.", tag: "TACTICAL" },
-  { id: 'gauntlet',  name: 'The Gauntlet',    desc: "One person in the hot seat for all wings. Count wings eaten, final score = correct answers minus wings.", tag: "SOLO" }
+  { id: 'classic',   name: 'Classic',         desc: "Host asks the question. Everyone answers. Wrong answers eat the wing. Right answers abstain and look smug.", tag: "THE STANDARD", players: "2–10", min: 2, max: 10 },
+  { id: 'standing',  name: 'Last One Standing', desc: "Everyone plays every wing. Three wrong answers and you're eliminated. Last person not out wins.", tag: "ELIMINATION", players: "3–8", min: 3, max: 8 },
+  { id: 'teams',     name: 'Team vs Team',    desc: "Two teams, one captain answers per wing (rotating). Wrong team eats. First team to 5 wings eaten loses.", tag: "TEAM MODE", players: "4–10 (even)", min: 4, max: 10 },
+  { id: 'double',    name: 'Double or Nothing', desc: "Before each question, any player can double down. Right = skip next wing too. Wrong = eat this AND the next.", tag: "HIGH STAKES", players: "3–8", min: 3, max: 8 },
+  { id: 'spotlight', name: "Host's Choice",   desc: "Host picks one person per wing to answer. Right = immunity next round. Wrong = eat. Strategic targeting.", tag: "TACTICAL", players: "3–8", min: 3, max: 8 },
+  { id: 'gauntlet',  name: 'The Gauntlet',    desc: "One person in the hot seat for all wings. Count wings eaten, final score = correct answers minus wings.", tag: "SOLO", players: "1 only", min: 1, max: 1 }
 ];
 
 // =============================================================================
@@ -1338,6 +1341,7 @@ function renderModes() {
       <div class="mode-name">${m.name}</div>
       <div class="mode-desc">${m.desc}</div>
       <div class="mode-tag">${m.tag}</div>
+      <div class="mode-players">${m.players}</div>
     </div>
   `).join('');
 }
