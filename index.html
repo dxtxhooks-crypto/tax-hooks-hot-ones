@@ -307,8 +307,8 @@
   .action-btn:active { transform: scale(0.97); }
   .action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-  /* Scoreboard */
-  .scoreboard { position: absolute; top: 0; right: 0; bottom: 0; width: 340px; background: var(--black); border-left: 2px solid var(--gold); padding: 24px 18px; z-index: 11; transform: translateX(100%); transition: transform 0.4s; overflow-y: auto; }
+  /* Scoreboard — fixed so it can slide over local or remote screens */
+  .scoreboard { position: fixed; top: 0; right: 0; bottom: 0; width: 340px; background: var(--black); border-left: 2px solid var(--gold); padding: 24px 18px; z-index: 51; transform: translateX(100%); transition: transform 0.4s; overflow-y: auto; }
   .scoreboard.open { transform: translateX(0); }
   .scoreboard-close {
     position: absolute; top: 14px; right: 14px;
@@ -321,8 +321,8 @@
   }
   .scoreboard-close:active { background: rgba(200,169,81,0.15); }
   .scoreboard-backdrop {
-    position: absolute; inset: 0; background: rgba(0,0,0,0.5);
-    z-index: 10; opacity: 0; pointer-events: none;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 50; opacity: 0; pointer-events: none;
     transition: opacity 0.3s;
   }
   .scoreboard-backdrop.open { opacity: 1; pointer-events: auto; }
@@ -678,9 +678,9 @@
       </div>
     </div>
     <div class="setup-footer">
-      <button class="btn-back" onclick="goTo('title-screen')">← BACK</button>
+      <button class="btn-back" onclick="modeScreenBack()">← BACK</button>
       <button class="icon-btn" style="flex:none; padding: 18px 22px; letter-spacing: 2px;" onclick="goTo('editor-screen')">✎ EDIT QUESTIONS</button>
-      <button class="btn-start-show" onclick="goTo('setup-screen')">NEXT: LINEUP →</button>
+      <button class="btn-start-show" id="mode-next-btn" onclick="modeScreenNext()">NEXT: LINEUP →</button>
     </div>
   </div>
 
@@ -776,13 +776,6 @@
       <button class="action-btn ghost" id="btn-prev" onclick="phasePrev()">← BACK</button>
       <button class="action-btn primary" id="btn-next" onclick="phaseNext()">REVEAL ANSWER →</button>
     </div>
-
-    <div class="scoreboard" id="scoreboard">
-      <button class="scoreboard-close" onclick="toggleScoreboard()" aria-label="Close scoreboard">✕</button>
-      <h2>SCOREBOARD</h2>
-      <div id="score-list"></div>
-    </div>
-    <div class="scoreboard-backdrop" id="scoreboard-backdrop" onclick="toggleScoreboard()"></div>
 
     <!-- Double-Down overlay (for Double-or-Nothing mode) -->
     <div class="double-overlay" id="double-overlay" style="display:none;">
@@ -896,7 +889,7 @@
         style="width: 100%; padding: 14px; font-size: 16px; letter-spacing: 5px; text-align: center; text-transform: uppercase;
                background: rgba(0,0,0,0.4); color: var(--gold-bright); border: 1px solid var(--gold-dim); border-radius: 4px;
                font-family: inherit; font-weight: 700; margin-bottom: 12px;">
-      <button class="start-btn" onclick="createRemoteGame()" style="width: 100%;">★ HOST A GAME ★</button>
+      <button class="start-btn" onclick="prepareRemoteHost()" style="width: 100%;">★ HOST A GAME ★</button>
       <div style="color: var(--gold-dim); letter-spacing: 6px; margin: 34px 0 18px; font-size: 12px; font-weight: 700;">— OR JOIN —</div>
       <input id="join-code-input" type="text" maxlength="12" placeholder="ROOM CODE" autocapitalize="characters"
         style="width: 100%; padding: 18px; font-size: 24px; letter-spacing: 8px; text-align: center; text-transform: uppercase;
@@ -967,14 +960,18 @@
         <span class="diff-chip" id="rh-diff-chip">—</span>
       </div>
       <div class="top-bar-right">
+        <button class="icon-btn hint-btn" id="rh-hint-btn" onclick="toggleRemoteHostHint()" style="display:none;">💡 HINT</button>
         <button class="icon-btn" id="rh-peek-btn" onclick="toggleRemoteHostPeek()">👁 PEEK</button>
-        <button class="icon-btn" onclick="remoteHostEndShow()">END SHOW</button>
+        <button class="icon-btn wildcard-btn" id="rh-wildcard-btn" onclick="triggerRemoteWildcard()">🔥 WILDCARD</button>
+        <button class="icon-btn" onclick="toggleScoreboard()">SCORE</button>
+        <button class="icon-btn" onclick="remoteHostEndShow()">END</button>
       </div>
     </div>
     <div class="game-body">
       <div class="question-phase" style="max-width: 900px; margin: 0 auto;">
         <div class="q-label">★ THE QUESTION ★</div>
         <div class="q-text" id="rh-q-text">—</div>
+        <div class="hint-reveal" id="rh-hint-reveal"></div>
         <div id="rh-countdown-block" style="display:none; margin-top: 24px; color: var(--fire); letter-spacing: 6px; font-weight: 800;">
           LOCKING IN — <span id="rh-countdown-secs">15</span>s
         </div>
@@ -983,6 +980,16 @@
           <div class="answer-label" id="rh-answer-label">★ THE ANSWER ★</div>
           <div class="answer-text" id="rh-answer-text" style="font-size: 48px;">—</div>
           <div id="rh-answer-note" class="answer-note"></div>
+        </div>
+        <div class="interview-banner" id="rh-interview-prompt" style="display:none; max-width: 720px; margin: 20px auto 0;">
+          <div class="iv-icon">💬</div>
+          <div class="iv-body">
+            <div class="iv-label">INTERVIEW BREAK</div>
+            <div class="iv-line">Ask <strong id="rh-interview-target"></strong> — <span id="rh-interview-text"></span></div>
+          </div>
+        </div>
+        <div id="rh-sauce-line" style="display:none; margin: 16px auto 0; color: var(--gold); font-size: 12px; letter-spacing: 3px;">
+          SAUCE NEXT ROUND → <span id="rh-sauce-next" style="color: var(--gold-bright); font-weight: 800;">—</span>
         </div>
         <div style="margin-top: 30px; color: var(--gold); letter-spacing: 4px; font-size: 13px; font-weight: 700;">SUBMISSIONS <span id="rh-sub-counter">(0/0)</span></div>
         <div id="rh-submissions-list" style="margin-top: 16px;"></div>
@@ -1002,6 +1009,7 @@
       </div>
       <div class="top-bar-right">
         <span id="rp-score" style="color: var(--gold-bright); font-size: 13px; letter-spacing: 2px; font-weight: 700;">✓0 · 🔥0</span>
+        <button class="icon-btn" onclick="toggleScoreboard()">SCORE</button>
       </div>
     </div>
     <div class="game-body" style="text-align: center; max-width: 640px; margin: 0 auto;">
@@ -1026,8 +1034,16 @@
       <div id="rp-result-block" style="display:none; margin-top: 30px;">
         <div id="rp-verdict-icon" style="font-size: 72px; margin-bottom: 10px; line-height: 1;">—</div>
         <div id="rp-verdict-label" style="font-size: 22px; font-weight: 800; letter-spacing: 4px; text-transform: uppercase;">—</div>
-        <div style="color: var(--gold-bright); margin: 24px 0; font-size: 18px;">ANSWER: <span id="rp-canonical" style="font-weight: 800;"></span></div>
-        <div id="rp-your-submission" style="color: #888; font-size: 13px; font-style: italic;"></div>
+        <div style="color: var(--gold-bright); margin: 24px 0; font-size: 22px;">ANSWER: <span id="rp-canonical" style="font-weight: 800;"></span></div>
+        <div id="rp-answer-note" style="color: #aaa; font-size: 13px; font-style: italic; margin-top: 6px;"></div>
+        <div id="rp-your-submission" style="color: #888; font-size: 13px; font-style: italic; margin-top: 18px;"></div>
+        <div class="interview-banner" id="rp-interview-prompt" style="display:none; margin: 24px auto 0; max-width: 520px;">
+          <div class="iv-icon">💬</div>
+          <div class="iv-body">
+            <div class="iv-label">HOST'S QUESTION</div>
+            <div class="iv-line" id="rp-interview-text"></div>
+          </div>
+        </div>
         <div style="color: #666; font-size: 12px; letter-spacing: 3px; margin-top: 40px; animation: shimmer 2s infinite;">WAITING FOR NEXT WING…</div>
       </div>
     </div>
@@ -1080,6 +1096,14 @@
 
     <div class="wc-counter" id="wc-counter">WILDCARDS USED: 0 / 0</div>
   </div>
+
+  <!-- Scoreboard (global — works across local game and remote screens) -->
+  <div class="scoreboard" id="scoreboard">
+    <button class="scoreboard-close" onclick="toggleScoreboard()" aria-label="Close scoreboard">✕</button>
+    <h2>SCOREBOARD</h2>
+    <div id="score-list"></div>
+  </div>
+  <div class="scoreboard-backdrop" id="scoreboard-backdrop" onclick="toggleScoreboard()"></div>
 
 </div>
 
@@ -1595,9 +1619,16 @@ function updateCustomToggleVisibility() {
 // =============================================================================
 // MODE SELECT
 // =============================================================================
+// Modes that translate cleanly to remote play (text submission, no captain rotation etc.)
+const REMOTE_MODE_IDS = new Set(['classic', 'standing']);
+
 function renderModes() {
   const grid = document.getElementById('mode-grid');
-  grid.innerHTML = MODES.map(m => `
+  const intent = remoteState && remoteState.intent;
+  const modes = intent === 'host' ? MODES.filter(m => REMOTE_MODE_IDS.has(m.id)) : MODES;
+  // If current selection isn't allowed in this context, default to classic
+  if (intent === 'host' && !REMOTE_MODE_IDS.has(state.mode)) state.mode = 'classic';
+  grid.innerHTML = modes.map(m => `
     <div class="mode-card ${state.mode === m.id ? 'selected' : ''}" onclick="selectMode('${m.id}')">
       <div class="mode-name">${m.name}</div>
       <div class="mode-desc">${m.desc}</div>
@@ -1605,6 +1636,26 @@ function renderModes() {
       <div class="mode-players">${m.players}</div>
     </div>
   `).join('');
+  const nextBtn = document.getElementById('mode-next-btn');
+  if (nextBtn) nextBtn.textContent = intent === 'host' ? 'CREATE ROOM →' : 'NEXT: LINEUP →';
+}
+
+function modeScreenNext() {
+  if (remoteState && remoteState.intent === 'host') {
+    createRemoteGame();
+  } else {
+    goTo('setup-screen');
+  }
+}
+
+function prepareRemoteHost() {
+  remoteState.intent = 'host';
+  goTo('mode-screen');
+}
+
+function modeScreenBack() {
+  if (remoteState.intent === 'host') { remoteState.intent = null; goTo('remote-hub-screen'); }
+  else goTo('title-screen');
 }
 
 function selectMode(modeId) {
@@ -2221,7 +2272,10 @@ function toggleScoreboard() {
   const bd = document.getElementById('scoreboard-backdrop');
   sb.classList.toggle('open');
   if (bd) bd.classList.toggle('open');
-  if (sb.classList.contains('open')) renderScoreboard();
+  if (sb.classList.contains('open')) {
+    if (remoteState && remoteState.role && remoteState.gameId) renderRemoteScoreboard();
+    else renderScoreboard();
+  }
 }
 
 function toggleHint() {
@@ -3019,10 +3073,11 @@ async function leaveRemote() {
 async function tearDownRemote(deleteGame) {
   const sb = getSupabase();
   if (remoteState.channel) { try { sb.removeChannel(remoteState.channel); } catch {} }
+  if (remoteState.countdownTimer) { try { clearInterval(remoteState.countdownTimer); } catch {} }
   if (deleteGame && remoteState.gameId && remoteState.role === 'host') {
     try { await sb.from('hotones_games').delete().eq('id', remoteState.gameId); } catch {}
   }
-  remoteState = { role: null, gameId: null, roomCode: null, playerId: null, channel: null };
+  remoteState = { role: null, gameId: null, roomCode: null, playerId: null, channel: null, intent: null, peeking: false, countdownTimer: null };
 }
 
 // Boot: if URL has ?room=XXXXXX and we're not already in host mode, route to player join
@@ -3147,15 +3202,18 @@ function renderRemoteHostView() {
   const isFinal = g.current_wing === g.wing_count - 1;
   document.getElementById('rh-wing-num').textContent = String(g.current_wing + 1).padStart(2, '0');
   document.getElementById('rh-wing-num').classList.toggle('final', isFinal);
-  document.getElementById('rh-sauce-label').textContent = 'WING ' + (g.current_wing + 1) + '/' + g.wing_count;
+  const sauce = currentSauceForGame(g);
+  document.getElementById('rh-sauce-label').textContent = sauce.sauce.toUpperCase() + ' · ' + sauce.shu + ' SHU · ' + (g.current_wing + 1) + '/' + g.wing_count;
   document.getElementById('rh-cat-chip').textContent = (q.cat || '').toUpperCase();
   const diffChip = document.getElementById('rh-diff-chip');
   diffChip.className = 'diff-chip diff-' + q.diff;
   diffChip.textContent = ['', 'EASY', 'MEDIUM', 'HARD'][q.diff];
   document.getElementById('rh-q-text').textContent = q.q;
+
   const revealed = g.phase === 'answer';
   const locking = g.phase === 'locking';
   const peeking = !!remoteState.peeking && !revealed;
+
   const ansBlock = document.getElementById('rh-answer-block');
   const peekLabel = document.getElementById('rh-peek-label');
   const ansLabel = document.getElementById('rh-answer-label');
@@ -3166,19 +3224,47 @@ function renderRemoteHostView() {
     document.getElementById('rh-answer-text').textContent = q.a;
     document.getElementById('rh-answer-note').textContent = q.note || '';
   }
-  const countdownBlock = document.getElementById('rh-countdown-block');
-  countdownBlock.style.display = locking ? 'block' : 'none';
+
+  document.getElementById('rh-countdown-block').style.display = locking ? 'block' : 'none';
+
   const peekBtn = document.getElementById('rh-peek-btn');
-  if (peekBtn) {
-    peekBtn.textContent = peeking ? '🙈 HIDE' : '👁 PEEK';
-    peekBtn.style.display = revealed ? 'none' : '';
+  if (peekBtn) { peekBtn.textContent = peeking ? '🙈 HIDE' : '👁 PEEK'; peekBtn.style.display = revealed ? 'none' : ''; }
+
+  // Hint button — only when the question has a hint and answer not yet revealed
+  const hintBtn = document.getElementById('rh-hint-btn');
+  const hintReveal = document.getElementById('rh-hint-reveal');
+  if (hintReveal) { hintReveal.textContent = q.hint || ''; hintReveal.classList.remove('open'); }
+  if (hintBtn) { hintBtn.classList.remove('active'); hintBtn.style.display = q.hint && !revealed ? '' : 'none'; }
+
+  // Wildcard button visibility
+  const wildcardBtn = document.getElementById('rh-wildcard-btn');
+  if (wildcardBtn) {
+    const wingsPer = 5;
+    const max = Math.max(1, Math.floor(g.wing_count / wingsPer));
+    const exhausted = (g.wildcards_used || 0) >= max;
+    wildcardBtn.disabled = isFinal || exhausted || revealed;
+    wildcardBtn.style.display = revealed ? 'none' : '';
   }
+
+  // Sauce-next preview on the answer screen
+  const sauceLine = document.getElementById('rh-sauce-line');
+  if (sauceLine) {
+    if (revealed && !isFinal) {
+      const nextIdx = Math.min((g.sauce_idx || 0) + sauceStepForGame(g), 8);
+      // If the round's reveal didn't escalate (all safe), show "same sauce holds"
+      const advanced = (g.sauce_advance_this_round === false); // after reveal, this is cleared
+      document.getElementById('rh-sauce-next').textContent = SAUCES[nextIdx].sauce;
+      sauceLine.style.display = 'block';
+    } else { sauceLine.style.display = 'none'; }
+  }
+
   const btn = document.getElementById('rh-advance-btn');
   if (!revealed && !locking) btn.textContent = 'REVEAL ANSWER →';
   else if (locking) btn.textContent = 'SKIP COUNTDOWN →';
   else btn.textContent = isFinal ? 'END THE SHOW →' : 'NEXT WING →';
   if (locking) startRemoteCountdown('host'); else stopRemoteCountdown();
   renderRemoteHostSubmissions();
+  renderRemoteInterview('host');
 }
 
 async function renderRemoteHostSubmissions() {
@@ -3257,6 +3343,14 @@ async function remoteHostAdvance() {
   } else if (g.phase === 'answer') {
     const isFinal = g.current_wing === g.wing_count - 1;
     remoteState.peeking = false;
+    // Standing mode: end early when ≤1 player still alive
+    if (g.mode === 'standing') {
+      const { data: alive } = await sb.from('hotones_players').select('id').eq('game_id', g.id).eq('eliminated', false);
+      if (alive && alive.length <= 1) {
+        await sb.from('hotones_games').update({ status: 'finished', phase: 'finale' }).eq('id', g.id);
+        return;
+      }
+    }
     if (isFinal) {
       await sb.from('hotones_games').update({ status: 'finished', phase: 'finale' }).eq('id', g.id);
     } else {
@@ -3270,18 +3364,36 @@ async function performRemoteReveal(g, q) {
   const { data: subs } = await sb.from('hotones_submissions')
     .select('*').eq('game_id', g.id).eq('wing_idx', g.current_wing);
   const list = subs || [];
+  let anyAte = false;
   await Promise.all(list.map(async s => {
     const graded = gradeAnswer(s.answer_text, q);
     await sb.from('hotones_submissions').update({ graded_correct: graded }).eq('id', s.id);
-    const { data: p } = await sb.from('hotones_players').select('correct, wings').eq('id', s.player_id).single();
+    if (!graded) anyAte = true;
+    const { data: p } = await sb.from('hotones_players').select('correct, wings, strikes, eliminated').eq('id', s.player_id).single();
     if (p) {
-      await sb.from('hotones_players').update({
-        correct: graded ? p.correct + 1 : p.correct,
-        wings: graded ? p.wings : p.wings + 1
-      }).eq('id', s.player_id);
+      const patch = graded
+        ? { correct: p.correct + 1 }
+        : { wings: p.wings + 1 };
+      // Standing mode: accumulate strikes, eliminate at 3
+      if (!graded && g.mode === 'standing') {
+        const nextStrikes = Math.min(3, (p.strikes || 0) + 1);
+        patch.strikes = nextStrikes;
+        if (nextStrikes >= 3) patch.eliminated = true;
+      }
+      await sb.from('hotones_players').update(patch).eq('id', s.player_id);
     }
   }));
-  await sb.from('hotones_games').update({ phase: 'answer', phase_ends_at: null }).eq('id', g.id);
+  // Clear any single-use immunity flags now that the round has resolved.
+  await sb.from('hotones_players').update({ skip_next: false }).eq('game_id', g.id).eq('skip_next', true);
+  // Sauce ladder bumps when anyone ate this round OR a wildcard earlier flagged it.
+  const shouldAdvance = anyAte || g.sauce_advance_this_round === true;
+  const nextSauceIdx = shouldAdvance ? Math.min(8, (g.sauce_idx || 0) + sauceStepForGame(g)) : (g.sauce_idx || 0);
+  await sb.from('hotones_games').update({
+    phase: 'answer',
+    phase_ends_at: null,
+    sauce_idx: nextSauceIdx,
+    sauce_advance_this_round: false
+  }).eq('id', g.id);
 }
 
 function toggleRemoteHostPeek() {
@@ -3340,17 +3452,19 @@ async function renderRemotePlayerView() {
   const isFinal = g.current_wing === g.wing_count - 1;
   document.getElementById('rp-wing-num').textContent = String(g.current_wing + 1).padStart(2, '0');
   document.getElementById('rp-wing-num').classList.toggle('final', isFinal);
-  document.getElementById('rp-cat-chip').textContent = 'WING ' + (g.current_wing + 1) + '/' + g.wing_count;
+  const sauce = currentSauceForGame(g);
+  document.getElementById('rp-cat-chip').textContent = sauce.sauce.toUpperCase() + ' · ' + (g.current_wing + 1) + '/' + g.wing_count;
   document.getElementById('rp-q-text').textContent = q.q;
 
   const sb = getSupabase();
   const [pRes, sRes] = await Promise.all([
-    sb.from('hotones_players').select('correct, wings').eq('id', remoteState.playerId).maybeSingle(),
+    sb.from('hotones_players').select('correct, wings, skip_next, eliminated, tapped_out, strikes').eq('id', remoteState.playerId).maybeSingle(),
     sb.from('hotones_submissions').select('*').eq('game_id', g.id).eq('wing_idx', g.current_wing).eq('player_id', remoteState.playerId).maybeSingle()
   ]);
   const p = pRes.data || { correct: 0, wings: 0 };
   const sub = sRes.data;
-  document.getElementById('rp-score').textContent = '✓' + p.correct + ' · 🔥' + p.wings;
+  const strikesChip = (remoteState.game && remoteState.game.mode) === 'standing' ? ' · ' + (p.strikes || 0) + '/3 strikes' : '';
+  document.getElementById('rp-score').textContent = '✓' + p.correct + ' · 🔥' + p.wings + strikesChip;
 
   const submitBlock = document.getElementById('rp-submit-block');
   const waitingBlock = document.getElementById('rp-waiting-block');
@@ -3363,8 +3477,15 @@ async function renderRemotePlayerView() {
   document.getElementById('rp-phase-label').textContent = g.phase === 'answer' ? '★ THE ANSWER ★' : '★ THE QUESTION ★';
 
   if (g.phase === 'question' || g.phase === 'locking') {
-    // Locking still accepts submissions — players see the same UI plus a countdown.
-    if (sub) {
+    // Eliminated players just watch.
+    if (p.eliminated) {
+      waitingBlock.style.display = 'block';
+      document.getElementById('rp-my-submission').textContent = p.tapped_out ? '🏳️ You tapped out — watching the rest play.' : '💀 Eliminated — watching the rest play.';
+    } else if (p.skip_next && !sub) {
+      // Wildcard-whiff gave this player a free pass for this wing.
+      waitingBlock.style.display = 'block';
+      document.getElementById('rp-my-submission').textContent = '🛡 IMMUNE — the crowd saved you this round';
+    } else if (sub) {
       waitingBlock.style.display = 'block';
       document.getElementById('rp-my-submission').textContent = '"' + sub.answer_text + '"';
     } else {
@@ -3380,6 +3501,9 @@ async function renderRemotePlayerView() {
     stopRemoteCountdown();
     resultBlock.style.display = 'block';
     document.getElementById('rp-canonical').textContent = q.a;
+    const noteEl = document.getElementById('rp-answer-note');
+    if (noteEl) noteEl.textContent = q.note || '';
+    renderRemoteInterview('player');
     const iconEl = document.getElementById('rp-verdict-icon');
     const labelEl = document.getElementById('rp-verdict-label');
     if (!sub) {
@@ -3409,11 +3533,15 @@ async function renderRemotePlayerView() {
 
 async function remotePlayerSubmit() {
   const g = remoteState.game;
-  if (!g || g.phase !== 'question') return;
+  // Allow submission during 'question' OR 'locking' (the lock-in countdown still accepts answers)
+  if (!g || (g.phase !== 'question' && g.phase !== 'locking')) return;
   const input = document.getElementById('rp-answer-input');
   const text = (input.value || '').trim();
   if (!text) return;
   const sb = getSupabase();
+  // Server-side sanity check: bail if the player is eliminated or has an active immunity
+  const { data: p } = await sb.from('hotones_players').select('eliminated, skip_next').eq('id', remoteState.playerId).maybeSingle();
+  if (p && (p.eliminated || p.skip_next)) { renderRemotePlayerView(); return; }
   const { error } = await sb.from('hotones_submissions').insert({
     game_id: g.id,
     wing_idx: g.current_wing,
@@ -3426,6 +3554,163 @@ async function remotePlayerSubmit() {
   }
   renderRemotePlayerView();
 }
+
+// ===== Remote scoreboard (works from any remote screen) =====
+async function renderRemoteScoreboard() {
+  const sb = getSupabase();
+  if (!remoteState.gameId) return;
+  const { data: players } = await sb.from('hotones_players')
+    .select('*').eq('game_id', remoteState.gameId).order('correct', { ascending: false });
+  const list = players || [];
+  const listEl = document.getElementById('score-list');
+  const showStrikes = (remoteState.game && remoteState.game.mode) === 'standing';
+  listEl.innerHTML = list.length === 0
+    ? '<div style="color:#666; font-style: italic; padding: 10px;">No players yet.</div>'
+    : list.map(p => {
+        const isMe = remoteState.role === 'player' && p.id === remoteState.playerId;
+        const dim = p.eliminated ? 'opacity:0.5;' : '';
+        const tag = p.tapped_out ? '<span class="sr-tappedout">🏳️ TAPPED OUT</span>' : (p.eliminated ? '<span class="sr-tappedout" style="color:#888;border:none;">OUT</span>' : '');
+        return '<div class="score-row" style="' + dim + (isMe ? 'background: rgba(200,169,81,0.08);' : '') + '">'
+          + '<div class="sr-name">' + escapeHtml(p.name) + (isMe ? ' <span style="color: var(--gold-bright); font-size: 10px;">(you)</span>' : '') + tag + '</div>'
+          + '<div class="sr-stats">'
+          +   '<span class="stat-pill correct">' + p.correct + ' ✓</span>'
+          +   '<span class="stat-pill wings">' + p.wings + ' 🔥</span>'
+          +   (showStrikes ? '<span class="stat-pill strikes">' + p.strikes + '/3</span>' : '')
+          + '</div></div>';
+      }).join('');
+}
+
+// ===== Sauce ladder helpers (remote) =====
+function sauceStepForGame(g) {
+  if (!g || !g.wing_count || g.wing_count <= 1) return 8;
+  return Math.max(1, Math.floor(9 / (g.wing_count - 1)));
+}
+
+function currentSauceForGame(g) {
+  if (!g) return SAUCES[0];
+  const isFinal = g.current_wing === g.wing_count - 1;
+  if (isFinal) return SAUCES[9];
+  return SAUCES[Math.min(g.sauce_idx || 0, 8)];
+}
+
+// ===== Deterministic interview target + prompt (so host + players see the same thing) =====
+async function computeInterviewForWing(g) {
+  if (!g || g.interview_enabled === false) return null;
+  const sb = getSupabase();
+  const [playersRes, subsRes] = await Promise.all([
+    sb.from('hotones_players').select('id, name, eliminated, joined_at').eq('game_id', g.id).order('joined_at'),
+    sb.from('hotones_submissions').select('player_id, answer_text, graded_correct, host_override').eq('game_id', g.id).eq('wing_idx', g.current_wing)
+  ]);
+  const active = (playersRes.data || []).filter(p => !p.eliminated);
+  if (active.length === 0) return null;
+  const subs = subsRes.data || [];
+  const wrongIds = subs.filter(s => {
+    const correct = s.host_override != null ? s.host_override : s.graded_correct;
+    return correct === false;
+  }).map(s => s.player_id).sort();
+  let target = null;
+  if (wrongIds.length > 0) {
+    target = active.find(p => p.id === wrongIds[0]) || active[0];
+  } else {
+    target = active[g.current_wing % active.length];
+  }
+  const prompt = INTERVIEW_PROMPTS[g.current_wing % INTERVIEW_PROMPTS.length];
+  return { target, prompt };
+}
+
+async function renderRemoteInterview(side) {
+  const g = remoteState.game;
+  const banner = document.getElementById(side === 'host' ? 'rh-interview-prompt' : 'rp-interview-prompt');
+  if (!banner) return;
+  if (!g || g.phase !== 'answer' || g.interview_enabled === false) { banner.style.display = 'none'; return; }
+  const iv = await computeInterviewForWing(g);
+  if (!iv) { banner.style.display = 'none'; return; }
+  if (side === 'host') {
+    document.getElementById('rh-interview-target').textContent = iv.target.name;
+    document.getElementById('rh-interview-text').textContent = iv.prompt;
+  } else {
+    document.getElementById('rp-interview-text').textContent = '"' + iv.prompt + '" — ' + (iv.target.id === remoteState.playerId ? 'you\'re up!' : 'asked to ' + iv.target.name);
+  }
+  banner.style.display = 'flex';
+}
+
+// ===== Hints (host-only) =====
+function toggleRemoteHostHint() {
+  const reveal = document.getElementById('rh-hint-reveal');
+  const btn = document.getElementById('rh-hint-btn');
+  const open = reveal.classList.toggle('open');
+  if (btn) btn.classList.toggle('active', open);
+}
+
+// ===== Wildcards (host-only trigger, reuses existing .wildcard-overlay) =====
+let remoteWildcardPending = null;
+
+function triggerRemoteWildcard() {
+  const g = remoteState.game;
+  if (!g) return;
+  if (g.phase !== 'question' && g.phase !== 'locking') { alert('Trigger the wildcard before revealing the answer.'); return; }
+  if (g.current_wing === g.wing_count - 1) { alert('No wildcards on the final wing.'); return; }
+  const wingsPer = 5;
+  const max = Math.max(1, Math.floor(g.wing_count / wingsPer));
+  if ((g.wildcards_used || 0) >= max) { alert('Max ' + max + ' wildcard' + (max === 1 ? '' : 's') + ' for a ' + g.wing_count + '-wing game.'); return; }
+  // Pull a random unused question
+  const usedQs = new Set((g.wing_list || []).map(q => q.q));
+  let pool = QUESTIONS.filter(q => !usedQs.has(q.q));
+  if (pool.length === 0) pool = QUESTIONS.slice();
+  const wcQ = pool[Math.floor(Math.random() * pool.length)];
+  remoteWildcardPending = wcQ;
+  document.getElementById('wc-question').textContent = wcQ.q;
+  document.getElementById('wc-answer').textContent = wcQ.a;
+  document.getElementById('wc-answer-note').textContent = wcQ.note || '';
+  document.getElementById('wc-counter').textContent = 'WILDCARDS USED: ' + (g.wildcards_used || 0) + ' / ' + max;
+  // Populate consequence text
+  const active = remoteState.playerCount || 0;
+  const winEl = document.getElementById('wc-consequence-win');
+  const whiffEl = document.getElementById('wc-consequence-whiff');
+  const nextSauceName = SAUCES[Math.min((g.sauce_idx || 0) + sauceStepForGame(g), 8)].sauce;
+  if (winEl) winEl.textContent = 'All contestants eat a wing · sauce next round → ' + nextSauceName;
+  if (whiffEl) whiffEl.textContent = 'All contestants immune next wing';
+  document.getElementById('wc-phase-vote').style.display = 'block';
+  document.getElementById('wc-phase-verdict').style.display = 'none';
+  document.getElementById('wildcard-overlay').classList.add('open');
+}
+
+async function resolveRemoteWildcard(outcome) {
+  const sb = getSupabase();
+  const g = remoteState.game;
+  if (!g) { closeWildcard(); return; }
+  // Bump wildcards_used and (for crowd-win) flag sauce advance
+  const updates = { wildcards_used: (g.wildcards_used || 0) + 1 };
+  if (outcome === 'crowd-win') updates.sauce_advance_this_round = true;
+  await sb.from('hotones_games').update(updates).eq('id', g.id);
+  // Apply player-side effects
+  const { data: players } = await sb.from('hotones_players')
+    .select('*').eq('game_id', g.id).eq('eliminated', false);
+  const list = players || [];
+  await Promise.all(list.map(async p => {
+    if (outcome === 'crowd-win') {
+      const patch = { wings: p.wings + 1 };
+      if (g.mode === 'standing') {
+        patch.strikes = Math.min(3, (p.strikes || 0) + 1);
+        if (patch.strikes >= 3) patch.eliminated = true;
+      }
+      await sb.from('hotones_players').update(patch).eq('id', p.id);
+    } else if (outcome === 'crowd-whiff') {
+      await sb.from('hotones_players').update({ skip_next: true }).eq('id', p.id);
+    }
+  }));
+  remoteWildcardPending = null;
+  closeWildcard();
+}
+
+// Patch the existing resolveWildcard to branch for remote host mode
+const _localResolveWildcard = resolveWildcard;
+resolveWildcard = function(outcome) {
+  if (remoteState && remoteState.role === 'host' && remoteWildcardPending) {
+    return resolveRemoteWildcard(outcome);
+  }
+  return _localResolveWildcard(outcome);
+};
 
 // ===== Finale =====
 async function enterRemoteFinale() {
