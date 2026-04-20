@@ -676,6 +676,16 @@
           <button class="pill" data-interview="off">Off</button>
         </div>
       </div>
+      <div class="option-row">
+        <div class="option-label">Answer Timer <span style="color:#666; font-weight:400; font-size:10px;">(remote)</span></div>
+        <div class="pill-group" id="timer-picker">
+          <button class="pill" data-timer="0">Off</button>
+          <button class="pill" data-timer="15">15s</button>
+          <button class="pill active" data-timer="30">30s</button>
+          <button class="pill" data-timer="45">45s</button>
+          <button class="pill" data-timer="60">60s</button>
+        </div>
+      </div>
     </div>
     <div class="setup-footer">
       <button class="btn-back" onclick="modeScreenBack()">← BACK</button>
@@ -1504,6 +1514,7 @@ const state = {
   teamVerdict: null,   // 'correct' | 'wrong' for teams mode
   doublersNext: new Set(), // players who doubled on prior wing — must also eat current if wrong
   history: [],          // pre-commit snapshots so BACK from a later wing unwinds stats cleanly
+  answerSecs: 30,        // remote-only: timer that runs during the question phase (0 = off)
   interviewPromptsEnabled: true, // host-facing "💬 Ask [name]" banner on the verdict screen
   interviewDismissedWing: -1,    // wing index whose interview banner was dismissed
   interviewState: null           // { targetIdx, prompt } locked in for the current wing
@@ -1695,6 +1706,13 @@ document.getElementById('interview-picker').addEventListener('click', e => {
     document.querySelectorAll('#interview-picker .pill').forEach(p => p.classList.remove('active'));
     e.target.classList.add('active');
     state.interviewPromptsEnabled = e.target.dataset.interview === 'on';
+  }
+});
+document.getElementById('timer-picker').addEventListener('click', e => {
+  if (e.target.classList.contains('pill')) {
+    document.querySelectorAll('#timer-picker .pill').forEach(p => p.classList.remove('active'));
+    e.target.classList.add('active');
+    state.answerSecs = parseInt(e.target.dataset.timer, 10);
   }
 });
 
@@ -2862,6 +2880,7 @@ async function createRemoteGame() {
     difficulty: state.difficulty,
     category: state.category,
     interview_enabled: state.interviewPromptsEnabled,
+    answer_secs: state.answerSecs || 0,
     status: 'lobby',
     phase: 'lobby'
   };
@@ -3053,7 +3072,9 @@ async function startRemoteGame() {
     return;
   }
   rememberAskedQuestions(state.wingList);
-  const endsAt = new Date(Date.now() + REMOTE_ANSWER_SECS * 1000).toISOString();
+  // Fetch latest game so we read the persisted answer_secs rather than relying on stale state
+  const { data: latest } = await sb.from('hotones_games').select('answer_secs').eq('id', remoteState.gameId).single();
+  const endsAt = pickAnswerEndsAt(latest);
   const { error } = await sb.from('hotones_games')
     .update({ status: 'active', phase: 'question', current_wing: 0, wing_list: state.wingList, phase_ends_at: endsAt })
     .eq('id', remoteState.gameId);
@@ -3363,9 +3384,14 @@ async function remoteHostOverride(submissionId, newCorrect) {
   await sb.from('hotones_players').update(patch).eq('id', sub.player_id);
 }
 
-// Answer window per wing — timer starts when the question is posted,
-// players type during that window, auto-reveal on expiry.
-const REMOTE_ANSWER_SECS = 30;
+// Fallback answer window if an older game row has no answer_secs set.
+const REMOTE_ANSWER_SECS_DEFAULT = 30;
+
+function pickAnswerEndsAt(g) {
+  const secs = g && typeof g.answer_secs === 'number' ? g.answer_secs : REMOTE_ANSWER_SECS_DEFAULT;
+  if (!secs || secs <= 0) return null; // 'Off' → no timer, host paces the round
+  return new Date(Date.now() + secs * 1000).toISOString();
+}
 
 async function remoteHostAdvance() {
   const g = remoteState.game;
@@ -3389,7 +3415,7 @@ async function remoteHostAdvance() {
     if (isFinal) {
       await sb.from('hotones_games').update({ status: 'finished', phase: 'finale' }).eq('id', g.id);
     } else {
-      const endsAt = new Date(Date.now() + REMOTE_ANSWER_SECS * 1000).toISOString();
+      const endsAt = pickAnswerEndsAt(g);
       await sb.from('hotones_games').update({ current_wing: g.current_wing + 1, phase: 'question', phase_ends_at: endsAt }).eq('id', g.id);
     }
   }
