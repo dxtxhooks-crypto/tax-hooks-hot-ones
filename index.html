@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#000000">
 <title>Tax Hooks • Hot Ones: Picnic Edition</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root {
     --black: #000000;
@@ -600,6 +601,7 @@
       <div class="sponsor-since">Since 1984</div>
     </div>
     <button class="start-btn" onclick="goTo('mode-screen')">★  BEGIN THE SHOW  ★</button>
+    <button class="start-btn" style="margin-top: 14px; background: transparent; color: var(--gold); border: 2px solid var(--gold-deep); box-shadow: none;" onclick="goTo('remote-hub-screen')">📱 PLAY REMOTE</button>
   </div>
 
   <!-- MODE SELECT -->
@@ -864,6 +866,68 @@
 
     <div class="setup-footer">
       <button class="btn-back" onclick="goTo('mode-screen')">← BACK TO MODES</button>
+    </div>
+  </div>
+
+  <!-- REMOTE HUB -->
+  <div id="remote-hub-screen" class="screen">
+    <div class="stars-row">★ ★ ★</div>
+    <div class="presents" style="margin-bottom: 8px;">REMOTE PLAY</div>
+    <div class="presents-sub" style="margin-bottom: 50px;">EVERYONE ON THEIR OWN DEVICE</div>
+    <div style="max-width: 500px; width: 100%; text-align: center;">
+      <button class="start-btn" onclick="createRemoteGame()" style="width: 100%;">★ HOST A GAME ★</button>
+      <div style="color: var(--gold-dim); letter-spacing: 6px; margin: 34px 0 18px; font-size: 12px; font-weight: 700;">— OR JOIN —</div>
+      <input id="join-code-input" type="text" maxlength="6" placeholder="ROOM CODE" autocapitalize="characters"
+        style="width: 100%; padding: 18px; font-size: 26px; letter-spacing: 10px; text-align: center; text-transform: uppercase;
+               background: rgba(0,0,0,0.4); color: var(--gold-bright); border: 2px solid var(--gold-dim); border-radius: 4px;
+               font-family: inherit; font-weight: 800; margin-bottom: 14px;">
+      <button class="start-btn" onclick="joinRemoteGame()" style="width: 100%; background: transparent; color: var(--gold-bright); border: 2px solid var(--gold-bright); box-shadow: none;">JOIN GAME →</button>
+    </div>
+    <button class="btn-back" style="margin-top: 40px;" onclick="leaveRemote()">← BACK</button>
+  </div>
+
+  <!-- HOST LOBBY -->
+  <div id="host-lobby-screen" class="screen">
+    <div style="text-align: center; margin-bottom: 24px;">
+      <div class="presents" style="font-size: 13px; margin-bottom: 6px;">ROOM CODE</div>
+      <div id="host-room-code" style="font-size: 68px; font-weight: 900; letter-spacing: 16px; color: var(--gold-bright); text-shadow: 0 0 40px rgba(200,169,81,0.4); line-height: 1;">——————</div>
+      <div style="color: #666; font-size: 11px; letter-spacing: 3px; margin-top: 10px;">Players join at this URL with the code</div>
+    </div>
+    <div class="options-panel" style="max-width: 720px; margin: 0 auto; width: 100%;">
+      <div style="color: var(--gold-bright); font-size: 12px; letter-spacing: 4px; font-weight: 700; margin-bottom: 14px;">IN THE ROOM (<span id="host-player-count">0</span>)</div>
+      <div id="host-player-list" style="min-height: 50px; color: var(--white); display: flex; flex-wrap: wrap; gap: 8px;"></div>
+    </div>
+    <div class="setup-footer">
+      <button class="btn-back" onclick="cancelRemoteGame()">✕ CANCEL ROOM</button>
+      <button class="btn-start-show" id="host-start-btn" onclick="startRemoteGame()" disabled>START SHOW →</button>
+    </div>
+  </div>
+
+  <!-- PLAYER JOIN -->
+  <div id="player-join-screen" class="screen">
+    <div class="stars-row">★ ★ ★</div>
+    <div class="presents" style="margin-bottom: 6px;">JOINING ROOM</div>
+    <div id="player-join-code" style="font-size: 42px; font-weight: 900; letter-spacing: 14px; color: var(--gold-bright); margin-bottom: 36px;">——————</div>
+    <input id="player-name-input" type="text" maxlength="20" placeholder="Your name" autocomplete="off"
+      style="width: 100%; max-width: 420px; padding: 18px; font-size: 20px; text-align: center;
+             background: rgba(0,0,0,0.4); color: var(--gold-bright); border: 2px solid var(--gold-dim); border-radius: 4px;
+             font-family: inherit; font-weight: 700; letter-spacing: 3px; margin-bottom: 20px;"
+      onkeypress="if(event.key==='Enter') submitPlayerJoin()">
+    <button class="start-btn" onclick="submitPlayerJoin()">JOIN →</button>
+    <div id="player-join-error" style="color: var(--fire); margin-top: 16px; font-size: 13px; letter-spacing: 2px; display: none;"></div>
+    <button class="btn-back" style="margin-top: 40px;" onclick="leaveRemote()">← BACK</button>
+  </div>
+
+  <!-- PLAYER LOBBY -->
+  <div id="player-lobby-screen" class="screen">
+    <div style="text-align: center; max-width: 520px; width: 100%;">
+      <div class="presents" style="font-size: 12px; margin-bottom: 4px;">ROOM</div>
+      <div id="player-lobby-code" style="font-size: 42px; font-weight: 900; letter-spacing: 12px; color: var(--gold-bright); margin-bottom: 26px;">——————</div>
+      <div style="color: var(--gold); letter-spacing: 4px; font-size: 11px; font-weight: 700;">YOU'RE IN AS</div>
+      <div id="player-lobby-name" style="color: var(--white); font-size: 26px; font-weight: 800; letter-spacing: 3px; margin: 6px 0 40px;">—</div>
+      <div style="color: #888; font-size: 13px; letter-spacing: 3px; animation: shimmer 2s infinite;">WAITING FOR HOST TO START…</div>
+      <div id="player-lobby-roster" style="margin-top: 30px;"></div>
+      <button class="btn-back" style="margin-top: 40px;" onclick="leaveRemote()">✕ LEAVE</button>
     </div>
   </div>
 
@@ -2271,7 +2335,7 @@ function confirmExit() {
 // IPAD UX
 // =============================================================================
 document.addEventListener('touchmove', function(e) {
-  if (e.target.closest('.scoreboard') || e.target.closest('#title-screen') || e.target.closest('#setup-screen') || e.target.closest('#mode-screen') || e.target.closest('#game-screen') || e.target.closest('#finale-screen') || e.target.closest('#editor-screen')) return;
+  if (e.target.closest('.scoreboard') || e.target.closest('#title-screen') || e.target.closest('#setup-screen') || e.target.closest('#mode-screen') || e.target.closest('#game-screen') || e.target.closest('#finale-screen') || e.target.closest('#editor-screen') || e.target.closest('#remote-hub-screen') || e.target.closest('#host-lobby-screen') || e.target.closest('#player-join-screen') || e.target.closest('#player-lobby-screen')) return;
   e.preventDefault();
 }, { passive: false });
 
@@ -2575,6 +2639,235 @@ resetGame = function(full) {
   _origResetGame.apply(this, arguments);
   if (!full) updateWildcardButtonState();
 };
+
+// =============================================================================
+// REMOTE PLAY — Phase 1: room-code lobby (Supabase + Realtime)
+// =============================================================================
+const SUPABASE_URL = 'https://esikpgwfawuukbhmcwyz.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_vYtjKWku8RgzX_5pcsGELg_e0u_Qnib';
+const SESSION_KEY = 'hotones_session_id_v1';
+let supa = null;
+let remoteState = { role: null, gameId: null, roomCode: null, playerId: null, channel: null };
+
+function getSupabase() {
+  if (supa) return supa;
+  if (!window.supabase) return null;
+  supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return supa;
+}
+
+function getSessionId() {
+  let sid = localStorage.getItem(SESSION_KEY);
+  if (!sid) {
+    sid = (crypto.randomUUID ? crypto.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+          const r = Math.random()*16|0; return (c === 'x' ? r : (r&0x3|0x8)).toString(16);
+        }));
+    localStorage.setItem(SESSION_KEY, sid);
+  }
+  return sid;
+}
+
+function genRoomCode() {
+  // Unambiguous alphabet: no I/O/0/1
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+async function createRemoteGame() {
+  const sb = getSupabase();
+  if (!sb) { alert('Cannot reach Supabase — check your connection and refresh.'); return; }
+  const sid = getSessionId();
+  // Retry up to 5× in the unlikely case of a room_code collision
+  let data = null, error = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = genRoomCode();
+    const res = await sb.from('hotones_games').insert({
+      room_code: code,
+      host_session_id: sid,
+      mode: state.mode,
+      wing_count: state.wingCount,
+      difficulty: state.difficulty,
+      category: state.category,
+      interview_enabled: state.interviewPromptsEnabled,
+      status: 'lobby',
+      phase: 'lobby'
+    }).select().single();
+    if (!res.error) { data = res.data; error = null; break; }
+    if (res.error.code === '23505') { error = res.error; continue; } // unique violation → retry
+    error = res.error; break;
+  }
+  if (error || !data) { alert('Could not create game: ' + (error ? error.message : 'unknown')); return; }
+  remoteState.role = 'host';
+  remoteState.gameId = data.id;
+  remoteState.roomCode = data.room_code;
+  enterHostLobby();
+}
+
+function joinRemoteGame() {
+  const codeInput = document.getElementById('join-code-input').value.trim().toUpperCase();
+  if (!codeInput || codeInput.length !== 6) { alert('Enter a 6-character room code.'); return; }
+  // Pass via URL so refresh/share keeps the context
+  const url = new URL(location.href);
+  url.searchParams.set('room', codeInput);
+  location.href = url.toString();
+}
+
+async function submitPlayerJoin() {
+  const sb = getSupabase();
+  if (!sb) { showPlayerJoinError('Cannot reach server'); return; }
+  const name = document.getElementById('player-name-input').value.trim();
+  if (!name) { showPlayerJoinError('Enter your name'); return; }
+  const code = remoteState.roomCode;
+  const { data: games, error: gErr } = await sb.from('hotones_games')
+    .select('*').eq('room_code', code).limit(1);
+  if (gErr || !games || games.length === 0) { showPlayerJoinError('Room not found'); return; }
+  const game = games[0];
+  if (game.status !== 'lobby') { showPlayerJoinError('Game already started'); return; }
+  const sid = getSessionId();
+  // Rejoin path: same session, same game → update name (in case they changed it)
+  const { data: existing } = await sb.from('hotones_players')
+    .select('*').eq('game_id', game.id).eq('session_id', sid).maybeSingle();
+  let player = existing;
+  if (player) {
+    await sb.from('hotones_players').update({ name }).eq('id', player.id);
+    player.name = name;
+  } else {
+    const { data: newP, error: pErr } = await sb.from('hotones_players').insert({
+      game_id: game.id, session_id: sid, name
+    }).select().single();
+    if (pErr) { showPlayerJoinError(pErr.message); return; }
+    player = newP;
+  }
+  remoteState.role = 'player';
+  remoteState.gameId = game.id;
+  remoteState.roomCode = game.room_code;
+  remoteState.playerId = player.id;
+  enterPlayerLobby(player.name);
+}
+
+function showPlayerJoinError(msg) {
+  const el = document.getElementById('player-join-error');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+
+function enterHostLobby() {
+  goTo('host-lobby-screen');
+  document.getElementById('host-room-code').textContent = remoteState.roomCode;
+  subscribeLobby('host');
+}
+
+function enterPlayerLobby(myName) {
+  goTo('player-lobby-screen');
+  document.getElementById('player-lobby-code').textContent = remoteState.roomCode;
+  document.getElementById('player-lobby-name').textContent = myName || '—';
+  subscribeLobby('player');
+}
+
+function subscribeLobby(role) {
+  const sb = getSupabase();
+  if (remoteState.channel) { sb.removeChannel(remoteState.channel); remoteState.channel = null; }
+  const ch = sb.channel('lobby:' + remoteState.gameId);
+  ch.on('postgres_changes',
+      { event: '*', schema: 'public', table: 'hotones_players', filter: 'game_id=eq.' + remoteState.gameId },
+      () => refreshLobbyRoster(role));
+  ch.on('postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'hotones_games', filter: 'id=eq.' + remoteState.gameId },
+      (payload) => handleLobbyGameChange(payload.new, role));
+  ch.subscribe();
+  remoteState.channel = ch;
+  refreshLobbyRoster(role);
+}
+
+async function refreshLobbyRoster(role) {
+  const sb = getSupabase();
+  const { data } = await sb.from('hotones_players')
+    .select('*').eq('game_id', remoteState.gameId).order('joined_at');
+  const list = data || [];
+  if (role === 'host') {
+    document.getElementById('host-player-count').textContent = list.length;
+    const listEl = document.getElementById('host-player-list');
+    listEl.innerHTML = list.length === 0
+      ? '<span style="color:#666; font-style:italic; padding:10px;">Waiting for players to join…</span>'
+      : list.map(p => `<span style="background: rgba(200,169,81,0.12); border: 1px solid var(--gold-dim); padding: 8px 14px; border-radius: 14px; color: var(--gold-bright); font-size: 14px; font-weight: 700;">★ ${escapeHtml(p.name)}</span>`).join('');
+    document.getElementById('host-start-btn').disabled = list.length < 1;
+  } else {
+    const roster = document.getElementById('player-lobby-roster');
+    roster.innerHTML = `<div style="color: var(--gold); font-size: 11px; letter-spacing: 3px; margin-bottom: 10px;">★ ${list.length} IN THE ROOM</div>` +
+      list.map(p => {
+        const me = p.id === remoteState.playerId;
+        return `<div style="padding: 6px; ${me ? 'color: var(--gold-bright); font-weight: 800;' : 'color: var(--white);'}">${escapeHtml(p.name)}${me ? ' (you)' : ''}</div>`;
+      }).join('');
+  }
+}
+
+function handleLobbyGameChange(game, role) {
+  if (!game) return;
+  if (game.status === 'active') {
+    // Phase 1 stub: show an alert so both host and player see the state propagate
+    alert(role === 'host' ? 'Show started. (Remote gameplay ships in Phase 2.)' : 'Host started the show! (Remote gameplay ships in Phase 2.)');
+  }
+}
+
+async function startRemoteGame() {
+  const sb = getSupabase();
+  const { error } = await sb.from('hotones_games')
+    .update({ status: 'active', phase: 'question' })
+    .eq('id', remoteState.gameId);
+  if (error) alert('Could not start: ' + error.message);
+}
+
+async function cancelRemoteGame() {
+  if (!confirm('Cancel this remote game? All players will be booted.')) return;
+  await tearDownRemote(true);
+  goTo('title-screen');
+}
+
+async function leaveRemote() {
+  const sb = getSupabase();
+  // Player leaving: delete their own row so host's roster updates
+  if (remoteState.role === 'player' && remoteState.playerId) {
+    try { await sb.from('hotones_players').delete().eq('id', remoteState.playerId); } catch {}
+  }
+  await tearDownRemote(false);
+  const url = new URL(location.href);
+  url.searchParams.delete('room');
+  history.replaceState({}, '', url.pathname);
+  goTo('title-screen');
+}
+
+async function tearDownRemote(deleteGame) {
+  const sb = getSupabase();
+  if (remoteState.channel) { try { sb.removeChannel(remoteState.channel); } catch {} }
+  if (deleteGame && remoteState.gameId && remoteState.role === 'host') {
+    try { await sb.from('hotones_games').delete().eq('id', remoteState.gameId); } catch {}
+  }
+  remoteState = { role: null, gameId: null, roomCode: null, playerId: null, channel: null };
+}
+
+// Boot: if URL has ?room=XXXXXX and we're not already in host mode, route to player join
+function bootRemoteFromURL() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const room = params.get('room');
+    if (!room) return;
+    remoteState.roomCode = room.toUpperCase().slice(0, 6);
+    const codeEl = document.getElementById('player-join-code');
+    if (codeEl) codeEl.textContent = remoteState.roomCode;
+    goTo('player-join-screen');
+    // Prefill name input if we have a stored session with a prior name (simple nicety)
+    setTimeout(() => { const el = document.getElementById('player-name-input'); if (el) el.focus(); }, 100);
+  } catch (e) {}
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootRemoteFromURL);
+} else {
+  bootRemoteFromURL();
+}
 </script>
 </body>
 </html>
