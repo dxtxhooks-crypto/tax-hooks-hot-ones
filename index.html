@@ -593,6 +593,29 @@
     .answer-text { font-size: 44px; }
     .scoreboard { width: 100%; }
     .mode-grid { grid-template-columns: 1fr; }
+
+    /* Remote player tightening — fit question + submit block on one phone screen */
+    #remote-player-game-screen { padding: 10px 12px 24px; }
+    #remote-player-game-screen .top-bar { padding-bottom: 10px; margin-bottom: 10px; gap: 6px; }
+    #remote-player-game-screen .wing-num { font-size: 14px; padding: 4px 8px; }
+    #remote-player-game-screen .sauce-label { font-size: 11px; letter-spacing: 1.5px; }
+    #remote-player-game-screen #rp-score { font-size: 11px; letter-spacing: 1px; }
+    #remote-player-game-screen .icon-btn { padding: 5px 8px; font-size: 10px; letter-spacing: 1px; }
+    #remote-player-game-screen .q-label { font-size: 10px; letter-spacing: 4px; margin-bottom: 10px; }
+    #remote-player-game-screen .q-text { font-size: 19px; padding: 14px 4px; line-height: 1.35; }
+    #remote-player-game-screen #rp-countdown-block { font-size: 15px; letter-spacing: 3px; margin-top: 10px; }
+    #remote-player-game-screen #rp-submit-block { margin-top: 14px; }
+    #remote-player-game-screen #rp-answer-input { font-size: 17px; padding: 12px; margin-bottom: 10px; letter-spacing: 0.5px; }
+    #remote-player-game-screen #rp-double-toggle { margin-bottom: 10px; }
+    #remote-player-game-screen #rp-double-btn { padding: 7px 14px; font-size: 11px; letter-spacing: 1.5px; }
+    #remote-player-game-screen .action-btn { min-width: 160px; padding: 14px 22px; font-size: 15px; }
+    #remote-player-game-screen #rp-verdict-icon { font-size: 52px; margin-bottom: 4px; }
+    #remote-player-game-screen #rp-verdict-label { font-size: 17px; letter-spacing: 3px; }
+    #remote-player-game-screen #rp-canonical { font-size: 18px; }
+    #remote-player-game-screen #rp-your-submission,
+    #remote-player-game-screen #rp-answer-note { font-size: 12px; }
+    #remote-player-game-screen .interview-banner { padding: 10px 12px; gap: 10px; }
+    #remote-player-game-screen .iv-line { font-size: 13px; line-height: 1.35; }
   }
 
 </style>
@@ -3525,6 +3548,17 @@ async function renderRemotePlayerView() {
   const q = getCurrentRemoteQuestion();
   if (!q) return;
   const isFinal = g.current_wing === g.wing_count - 1;
+
+  // When the wing index changes, reset transient per-wing state so the previous
+  // answer doesn't carry over into the next input and the DOUBLE DOWN toggle
+  // doesn't stay armed.
+  if (remoteState.lastWing !== g.current_wing) {
+    const inputEl = document.getElementById('rp-answer-input');
+    if (inputEl) inputEl.value = '';
+    remoteState.doubleArmed = false;
+    remoteState.lastWing = g.current_wing;
+  }
+
   document.getElementById('rp-wing-num').textContent = String(g.current_wing + 1).padStart(2, '0');
   document.getElementById('rp-wing-num').classList.toggle('final', isFinal);
   const sauce = currentSauceForGame(g);
