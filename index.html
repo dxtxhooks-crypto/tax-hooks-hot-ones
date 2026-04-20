@@ -703,6 +703,7 @@
       </div>
       <div class="top-bar-right">
         <button class="icon-btn hint-btn" id="hint-btn" onclick="toggleHint()" style="display:none;">💡 Hint</button>
+        <button class="icon-btn" id="dab-btn" onclick="dabExtraSauce()">🌶️ Dab</button>
         <button class="icon-btn wildcard-btn" id="wildcard-btn" onclick="triggerWildcard()">🔥 Wildcard</button>
         <button class="icon-btn" onclick="skipQuestion()">Skip Q</button>
         <button class="icon-btn" onclick="toggleScoreboard()">Score</button>
@@ -1676,6 +1677,7 @@ function loadWing() {
 
   setPhase('question');
   updateWildcardButtonState();
+  updateDabButtonState();
 }
 
 function handleModeQuestionStart() {
@@ -2049,6 +2051,26 @@ function toggleHint() {
   const btn = document.getElementById('hint-btn');
   const open = reveal.classList.toggle('open');
   btn.classList.toggle('active', open);
+}
+
+// Dab an extra sauce onto the current wing without advancing the round.
+// Useful when you want to stack multiple heat levels on the same physical wing.
+function dabExtraSauce() {
+  const isFinal = state.currentWing === state.wingCount - 1;
+  if (isFinal) { alert('The final wing is already Last Dab. No extra dabs available.'); return; }
+  if (state.sauceIdx >= 8) { alert('Already at the hottest pre-finale sauce.'); return; }
+  state.sauceIdx = Math.min(8, state.sauceIdx + 1);
+  const sauce = getCurrentSauce();
+  document.getElementById('sauce-label').textContent = sauce.sauce.toUpperCase();
+  document.getElementById('shu-chip').textContent = sauce.shu + ' SHU';
+  updateDabButtonState();
+}
+
+function updateDabButtonState() {
+  const btn = document.getElementById('dab-btn');
+  if (!btn) return;
+  const isFinal = state.currentWing === state.wingCount - 1;
+  btn.disabled = isFinal || state.sauceIdx >= 8;
 }
 
 function tapOut(idx) {
