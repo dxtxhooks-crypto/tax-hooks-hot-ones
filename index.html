@@ -2929,7 +2929,10 @@ async function shareRoomLink() {
 
 function joinRemoteGame() {
   const codeInput = document.getElementById('join-code-input').value.trim().toUpperCase();
-  if (!codeInput || codeInput.length !== 6) { alert('Enter a 6-character room code.'); return; }
+  if (!codeInput || !/^[A-Z0-9]{4,12}$/.test(codeInput)) {
+    alert('Room codes are 4–12 letters/numbers.');
+    return;
+  }
   // Pass via URL so refresh/share keeps the context
   const url = new URL(location.href);
   url.searchParams.set('room', codeInput);
