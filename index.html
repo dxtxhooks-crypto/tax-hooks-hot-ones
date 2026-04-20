@@ -3308,14 +3308,16 @@ function renderRemoteHostView() {
   if (hintReveal) { hintReveal.textContent = q.hint || ''; hintReveal.classList.remove('open'); }
   if (hintBtn) { hintBtn.classList.remove('active'); hintBtn.style.display = q.hint && !revealed ? '' : 'none'; }
 
-  // Wildcard button visibility
+  // Wildcard button visibility — usable during the wing OR between wings (answer phase).
+  // Only hidden on the last wing's question phase (can't wildcard into a non-existent next round).
   const wildcardBtn = document.getElementById('rh-wildcard-btn');
   if (wildcardBtn) {
     const wingsPer = 5;
     const max = Math.max(1, Math.floor(g.wing_count / wingsPer));
     const exhausted = (g.wildcards_used || 0) >= max;
-    wildcardBtn.disabled = isFinal || exhausted || revealed;
-    wildcardBtn.style.display = revealed ? 'none' : '';
+    const finalQuestion = isFinal && questioning;
+    wildcardBtn.disabled = finalQuestion || exhausted;
+    wildcardBtn.style.display = '';
   }
 
   // Sauce-next preview on the answer screen
@@ -3817,14 +3819,24 @@ function toggleRemoteHostHint() {
 // ===== Wildcards (host-only trigger, reuses existing .wildcard-overlay) =====
 let remoteWildcardPending = null;
 
-function triggerRemoteWildcard() {
+async function triggerRemoteWildcard() {
   const g = remoteState.game;
   if (!g) return;
-  if (g.phase !== 'question') { alert('Trigger the wildcard before revealing the answer.'); return; }
-  if (g.current_wing === g.wing_count - 1) { alert('No wildcards on the final wing.'); return; }
+  if (g.phase !== 'question' && g.phase !== 'answer') { alert('Wildcards work during a wing or between wings.'); return; }
+  if (g.current_wing === g.wing_count - 1 && g.phase !== 'answer') { alert('No wildcards on the final wing.'); return; }
   const wingsPer = 5;
   const max = Math.max(1, Math.floor(g.wing_count / wingsPer));
   if ((g.wildcards_used || 0) >= max) { alert('Max ' + max + ' wildcard' + (max === 1 ? '' : 's') + ' for a ' + g.wing_count + '-wing game.'); return; }
+
+  // If a timer is running, pause it so the countdown doesn't tick during the wildcard break.
+  if (g.phase === 'question' && g.phase_ends_at) {
+    const remainingMs = Math.max(0, new Date(g.phase_ends_at).getTime() - Date.now());
+    remoteState.wildcardResumeMs = remainingMs;
+    stopRemoteCountdown();
+    try {
+      await getSupabase().from('hotones_games').update({ phase_ends_at: null }).eq('id', g.id);
+    } catch (e) {}
+  }
   // Pull a random unused question
   const usedQs = new Set((g.wing_list || []).map(q => q.q));
   let pool = QUESTIONS.filter(q => !usedQs.has(q.q));
@@ -3882,6 +3894,21 @@ resolveWildcard = function(outcome) {
     return resolveRemoteWildcard(outcome);
   }
   return _localResolveWildcard(outcome);
+};
+
+// When the wildcard overlay closes (cancel OR resolve), resume any timer we paused.
+const _localCloseWildcard = closeWildcard;
+closeWildcard = async function() {
+  _localCloseWildcard.apply(this, arguments);
+  if (remoteState && remoteState.role === 'host' && remoteState.wildcardResumeMs != null && remoteState.wildcardResumeMs > 0) {
+    const ms = remoteState.wildcardResumeMs;
+    remoteState.wildcardResumeMs = null;
+    const g = remoteState.game;
+    if (g && g.phase === 'question') {
+      const endsAt = new Date(Date.now() + ms).toISOString();
+      try { await getSupabase().from('hotones_games').update({ phase_ends_at: endsAt }).eq('id', g.id); } catch (e) {}
+    }
+  }
 };
 
 // ===== Finale =====
