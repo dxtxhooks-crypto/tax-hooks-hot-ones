@@ -967,6 +967,7 @@
         <span class="diff-chip" id="rh-diff-chip">—</span>
       </div>
       <div class="top-bar-right">
+        <button class="icon-btn" id="rh-peek-btn" onclick="toggleRemoteHostPeek()">👁 PEEK</button>
         <button class="icon-btn" onclick="remoteHostEndShow()">END SHOW</button>
       </div>
     </div>
@@ -974,8 +975,12 @@
       <div class="question-phase" style="max-width: 900px; margin: 0 auto;">
         <div class="q-label">★ THE QUESTION ★</div>
         <div class="q-text" id="rh-q-text">—</div>
+        <div id="rh-countdown-block" style="display:none; margin-top: 24px; color: var(--fire); letter-spacing: 6px; font-weight: 800;">
+          LOCKING IN — <span id="rh-countdown-secs">15</span>s
+        </div>
         <div id="rh-answer-block" style="display:none; margin-top: 30px;">
-          <div class="answer-label">★ THE ANSWER ★</div>
+          <div id="rh-peek-label" class="answer-label" style="display:none; color: var(--gold-dim); font-size: 11px;">★ HOST PREVIEW (PLAYERS DON'T SEE THIS YET) ★</div>
+          <div class="answer-label" id="rh-answer-label">★ THE ANSWER ★</div>
           <div class="answer-text" id="rh-answer-text" style="font-size: 48px;">—</div>
           <div id="rh-answer-note" class="answer-note"></div>
         </div>
@@ -1002,6 +1007,9 @@
     <div class="game-body" style="text-align: center; max-width: 640px; margin: 0 auto;">
       <div class="q-label" id="rp-phase-label">★ THE QUESTION ★</div>
       <div class="q-text" id="rp-q-text">—</div>
+      <div id="rp-countdown-block" style="display:none; margin-top: 18px; color: var(--fire); letter-spacing: 4px; font-weight: 800; font-size: 18px;">
+        LOCK IN — <span id="rp-countdown-secs">15</span>s
+      </div>
       <div id="rp-submit-block" style="margin: 30px auto 0;">
         <input id="rp-answer-input" type="text" placeholder="Type your answer" maxlength="100" autocomplete="off"
           style="width: 100%; max-width: 520px; padding: 18px; font-size: 20px; text-align: center;
@@ -3146,14 +3154,30 @@ function renderRemoteHostView() {
   diffChip.textContent = ['', 'EASY', 'MEDIUM', 'HARD'][q.diff];
   document.getElementById('rh-q-text').textContent = q.q;
   const revealed = g.phase === 'answer';
+  const locking = g.phase === 'locking';
+  const peeking = !!remoteState.peeking && !revealed;
   const ansBlock = document.getElementById('rh-answer-block');
-  ansBlock.style.display = revealed ? 'block' : 'none';
-  if (revealed) {
+  const peekLabel = document.getElementById('rh-peek-label');
+  const ansLabel = document.getElementById('rh-answer-label');
+  ansBlock.style.display = (revealed || peeking) ? 'block' : 'none';
+  peekLabel.style.display = peeking ? 'block' : 'none';
+  ansLabel.style.display = peeking ? 'none' : 'block';
+  if (revealed || peeking) {
     document.getElementById('rh-answer-text').textContent = q.a;
     document.getElementById('rh-answer-note').textContent = q.note || '';
   }
+  const countdownBlock = document.getElementById('rh-countdown-block');
+  countdownBlock.style.display = locking ? 'block' : 'none';
+  const peekBtn = document.getElementById('rh-peek-btn');
+  if (peekBtn) {
+    peekBtn.textContent = peeking ? '🙈 HIDE' : '👁 PEEK';
+    peekBtn.style.display = revealed ? 'none' : '';
+  }
   const btn = document.getElementById('rh-advance-btn');
-  btn.textContent = !revealed ? 'REVEAL ANSWER →' : (isFinal ? 'END THE SHOW →' : 'NEXT WING →');
+  if (!revealed && !locking) btn.textContent = 'REVEAL ANSWER →';
+  else if (locking) btn.textContent = 'SKIP COUNTDOWN →';
+  else btn.textContent = isFinal ? 'END THE SHOW →' : 'NEXT WING →';
+  if (locking) startRemoteCountdown('host'); else stopRemoteCountdown();
   renderRemoteHostSubmissions();
 }
 
@@ -3215,36 +3239,79 @@ async function remoteHostOverride(submissionId, newCorrect) {
   }).eq('id', sub.player_id);
 }
 
+// 15-second window after host clicks 'reveal' where players can still lock in.
+const REMOTE_LOCK_IN_SECS = 15;
+
 async function remoteHostAdvance() {
   const g = remoteState.game;
   if (!g) return;
   const sb = getSupabase();
   const q = getCurrentRemoteQuestion();
   if (g.phase === 'question') {
-    // Grade every existing submission, then flip phase to answer.
-    const { data: subs } = await sb.from('hotones_submissions')
-      .select('*').eq('game_id', g.id).eq('wing_idx', g.current_wing);
-    const list = subs || [];
-    await Promise.all(list.map(async s => {
-      const graded = gradeAnswer(s.answer_text, q);
-      await sb.from('hotones_submissions').update({ graded_correct: graded }).eq('id', s.id);
-      const { data: p } = await sb.from('hotones_players').select('correct, wings').eq('id', s.player_id).single();
-      if (p) {
-        await sb.from('hotones_players').update({
-          correct: graded ? p.correct + 1 : p.correct,
-          wings: graded ? p.wings : p.wings + 1
-        }).eq('id', s.player_id);
-      }
-    }));
-    await sb.from('hotones_games').update({ phase: 'answer' }).eq('id', g.id);
+    // Step 1: start the lock-in countdown. Nothing is graded yet; players keep submitting.
+    const endsAt = new Date(Date.now() + REMOTE_LOCK_IN_SECS * 1000).toISOString();
+    await sb.from('hotones_games').update({ phase: 'locking', phase_ends_at: endsAt }).eq('id', g.id);
+  } else if (g.phase === 'locking') {
+    // Step 2: countdown either expired or host skipped it. Grade and reveal.
+    await performRemoteReveal(g, q);
   } else if (g.phase === 'answer') {
     const isFinal = g.current_wing === g.wing_count - 1;
+    remoteState.peeking = false;
     if (isFinal) {
       await sb.from('hotones_games').update({ status: 'finished', phase: 'finale' }).eq('id', g.id);
     } else {
-      await sb.from('hotones_games').update({ current_wing: g.current_wing + 1, phase: 'question' }).eq('id', g.id);
+      await sb.from('hotones_games').update({ current_wing: g.current_wing + 1, phase: 'question', phase_ends_at: null }).eq('id', g.id);
     }
   }
+}
+
+async function performRemoteReveal(g, q) {
+  const sb = getSupabase();
+  const { data: subs } = await sb.from('hotones_submissions')
+    .select('*').eq('game_id', g.id).eq('wing_idx', g.current_wing);
+  const list = subs || [];
+  await Promise.all(list.map(async s => {
+    const graded = gradeAnswer(s.answer_text, q);
+    await sb.from('hotones_submissions').update({ graded_correct: graded }).eq('id', s.id);
+    const { data: p } = await sb.from('hotones_players').select('correct, wings').eq('id', s.player_id).single();
+    if (p) {
+      await sb.from('hotones_players').update({
+        correct: graded ? p.correct + 1 : p.correct,
+        wings: graded ? p.wings : p.wings + 1
+      }).eq('id', s.player_id);
+    }
+  }));
+  await sb.from('hotones_games').update({ phase: 'answer', phase_ends_at: null }).eq('id', g.id);
+}
+
+function toggleRemoteHostPeek() {
+  remoteState.peeking = !remoteState.peeking;
+  renderRemoteHostView();
+}
+
+function stopRemoteCountdown() {
+  if (remoteState.countdownTimer) { clearInterval(remoteState.countdownTimer); remoteState.countdownTimer = null; }
+}
+
+function startRemoteCountdown(role) {
+  stopRemoteCountdown();
+  const tick = () => {
+    const g = remoteState.game;
+    if (!g || g.phase !== 'locking' || !g.phase_ends_at) { stopRemoteCountdown(); return; }
+    const remainingMs = Math.max(0, new Date(g.phase_ends_at).getTime() - Date.now());
+    const secs = Math.max(0, Math.ceil(remainingMs / 1000));
+    const hostEl = document.getElementById('rh-countdown-secs');
+    const playerEl = document.getElementById('rp-countdown-secs');
+    if (hostEl) hostEl.textContent = secs;
+    if (playerEl) playerEl.textContent = secs;
+    if (remainingMs <= 0) {
+      stopRemoteCountdown();
+      // Only the host is authorized to flip the phase; all clients will then receive the update.
+      if (role === 'host' && g.phase === 'locking') performRemoteReveal(g, getCurrentRemoteQuestion());
+    }
+  };
+  tick();
+  remoteState.countdownTimer = setInterval(tick, 250);
 }
 
 async function remoteHostEndShow() {
@@ -3288,35 +3355,54 @@ async function renderRemotePlayerView() {
   const submitBlock = document.getElementById('rp-submit-block');
   const waitingBlock = document.getElementById('rp-waiting-block');
   const resultBlock = document.getElementById('rp-result-block');
+  const countdownBlock = document.getElementById('rp-countdown-block');
   submitBlock.style.display = 'none';
   waitingBlock.style.display = 'none';
   resultBlock.style.display = 'none';
+  countdownBlock.style.display = 'none';
   document.getElementById('rp-phase-label').textContent = g.phase === 'answer' ? '★ THE ANSWER ★' : '★ THE QUESTION ★';
 
-  if (g.phase === 'question') {
+  if (g.phase === 'question' || g.phase === 'locking') {
+    // Locking still accepts submissions — players see the same UI plus a countdown.
     if (sub) {
       waitingBlock.style.display = 'block';
       document.getElementById('rp-my-submission').textContent = '"' + sub.answer_text + '"';
     } else {
       submitBlock.style.display = 'block';
     }
+    if (g.phase === 'locking') {
+      countdownBlock.style.display = 'block';
+      startRemoteCountdown('player');
+    } else {
+      stopRemoteCountdown();
+    }
   } else if (g.phase === 'answer') {
+    stopRemoteCountdown();
     resultBlock.style.display = 'block';
     document.getElementById('rp-canonical').textContent = q.a;
-    const correct = sub ? (sub.host_override != null ? sub.host_override : sub.graded_correct) : false;
-    document.getElementById('rp-your-submission').textContent = sub ? ('You typed: "' + sub.answer_text + '"') : '(no answer submitted)';
     const iconEl = document.getElementById('rp-verdict-icon');
     const labelEl = document.getElementById('rp-verdict-label');
-    if (correct) {
-      iconEl.textContent = '✓';
+    if (!sub) {
+      // No submission → neutral briefing, NO penalty icon. Host grading skipped them.
+      document.getElementById('rp-your-submission').textContent = '(You didn\'t lock in — no wing added)';
+      iconEl.textContent = '📖';
       iconEl.style.color = 'var(--gold-bright)';
-      labelEl.textContent = 'CORRECT';
+      labelEl.textContent = 'HERE\'S THE ANSWER';
       labelEl.style.color = 'var(--gold-bright)';
     } else {
-      iconEl.textContent = '🔥';
-      iconEl.style.color = 'var(--fire)';
-      labelEl.textContent = sub ? 'YOU ATE THE WING' : 'NO ANSWER';
-      labelEl.style.color = 'var(--fire)';
+      const correct = sub.host_override != null ? sub.host_override : sub.graded_correct;
+      document.getElementById('rp-your-submission').textContent = 'You typed: "' + sub.answer_text + '"';
+      if (correct) {
+        iconEl.textContent = '✓';
+        iconEl.style.color = 'var(--gold-bright)';
+        labelEl.textContent = 'CORRECT';
+        labelEl.style.color = 'var(--gold-bright)';
+      } else {
+        iconEl.textContent = '🔥';
+        iconEl.style.color = 'var(--fire)';
+        labelEl.textContent = 'YOU ATE THE WING';
+        labelEl.style.color = 'var(--fire)';
+      }
     }
   }
 }
