@@ -3090,7 +3090,7 @@ function bootRemoteFromURL() {
     const params = new URLSearchParams(location.search);
     const room = params.get('room');
     if (!room) return;
-    remoteState.roomCode = room.toUpperCase().slice(0, 6);
+    remoteState.roomCode = room.toUpperCase().slice(0, 12);
     const codeEl = document.getElementById('player-join-code');
     if (codeEl) codeEl.textContent = remoteState.roomCode;
     goTo('player-join-screen');
