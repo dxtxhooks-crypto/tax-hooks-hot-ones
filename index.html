@@ -68,6 +68,23 @@
   /* ===== TITLE SCREEN ===== */
   #title-screen { display: block; padding: 40px 40px 60px; text-align: center; }
   #title-screen .gold-line { margin-left: auto; margin-right: auto; }
+  /* Remote play screens use the same block + center pattern so content sits centered like the title screen */
+  #remote-hub-screen, #host-lobby-screen, #player-join-screen, #player-lobby-screen {
+    display: block; padding: 40px 24px 60px; text-align: center;
+  }
+  #remote-hub-screen > *, #host-lobby-screen > *, #player-join-screen > *, #player-lobby-screen > * {
+    margin-left: auto; margin-right: auto;
+  }
+  .room-code-display { user-select: text; -webkit-user-select: text; }
+  .room-code-actions { display: flex; justify-content: center; gap: 10px; margin-top: 14px; }
+  .room-code-actions button {
+    background: transparent; border: 1px solid var(--gold-dim);
+    color: var(--gold); padding: 10px 18px; border-radius: 4px;
+    font-family: inherit; font-weight: 700; font-size: 12px;
+    letter-spacing: 3px; cursor: pointer; text-transform: uppercase;
+  }
+  .room-code-actions button:active { background: rgba(200,169,81,0.15); }
+  .room-code-actions button.copied { color: var(--gold-bright); border-color: var(--gold-bright); }
   .stars-row { color: var(--gold); letter-spacing: 12px; font-size: 20px; margin-bottom: 30px; animation: shimmer 3s infinite; }
   @keyframes shimmer { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
   .presents { color: var(--gold-bright); font-weight: 700; font-size: 20px; letter-spacing: 14px; text-transform: uppercase; margin-bottom: 8px; text-align: center; }
@@ -874,13 +891,18 @@
     <div class="stars-row">★ ★ ★</div>
     <div class="presents" style="margin-bottom: 8px;">REMOTE PLAY</div>
     <div class="presents-sub" style="margin-bottom: 50px;">EVERYONE ON THEIR OWN DEVICE</div>
-    <div style="max-width: 500px; width: 100%; text-align: center;">
+    <div style="max-width: 500px; width: 100%;">
+      <input id="custom-code-input" type="text" maxlength="12" placeholder="CUSTOM CODE (OPTIONAL)" autocapitalize="characters"
+        style="width: 100%; padding: 14px; font-size: 16px; letter-spacing: 5px; text-align: center; text-transform: uppercase;
+               background: rgba(0,0,0,0.4); color: var(--gold-bright); border: 1px solid var(--gold-dim); border-radius: 4px;
+               font-family: inherit; font-weight: 700; margin-bottom: 12px;">
       <button class="start-btn" onclick="createRemoteGame()" style="width: 100%;">★ HOST A GAME ★</button>
       <div style="color: var(--gold-dim); letter-spacing: 6px; margin: 34px 0 18px; font-size: 12px; font-weight: 700;">— OR JOIN —</div>
-      <input id="join-code-input" type="text" maxlength="6" placeholder="ROOM CODE" autocapitalize="characters"
-        style="width: 100%; padding: 18px; font-size: 26px; letter-spacing: 10px; text-align: center; text-transform: uppercase;
+      <input id="join-code-input" type="text" maxlength="12" placeholder="ROOM CODE" autocapitalize="characters"
+        style="width: 100%; padding: 18px; font-size: 24px; letter-spacing: 8px; text-align: center; text-transform: uppercase;
                background: rgba(0,0,0,0.4); color: var(--gold-bright); border: 2px solid var(--gold-dim); border-radius: 4px;
-               font-family: inherit; font-weight: 800; margin-bottom: 14px;">
+               font-family: inherit; font-weight: 800; margin-bottom: 14px;"
+        onkeypress="if(event.key==='Enter') joinRemoteGame()">
       <button class="start-btn" onclick="joinRemoteGame()" style="width: 100%; background: transparent; color: var(--gold-bright); border: 2px solid var(--gold-bright); box-shadow: none;">JOIN GAME →</button>
     </div>
     <button class="btn-back" style="margin-top: 40px;" onclick="leaveRemote()">← BACK</button>
@@ -888,10 +910,14 @@
 
   <!-- HOST LOBBY -->
   <div id="host-lobby-screen" class="screen">
-    <div style="text-align: center; margin-bottom: 24px;">
+    <div style="margin-bottom: 24px;">
       <div class="presents" style="font-size: 13px; margin-bottom: 6px;">ROOM CODE</div>
-      <div id="host-room-code" style="font-size: 68px; font-weight: 900; letter-spacing: 16px; color: var(--gold-bright); text-shadow: 0 0 40px rgba(200,169,81,0.4); line-height: 1;">——————</div>
-      <div style="color: #666; font-size: 11px; letter-spacing: 3px; margin-top: 10px;">Players join at this URL with the code</div>
+      <div id="host-room-code" class="room-code-display" style="font-size: 60px; font-weight: 900; letter-spacing: 12px; color: var(--gold-bright); text-shadow: 0 0 40px rgba(200,169,81,0.4); line-height: 1; word-break: break-all;">——————</div>
+      <div class="room-code-actions">
+        <button id="copy-code-btn" onclick="copyRoomCode()">📋 Copy Code</button>
+        <button id="share-link-btn" onclick="shareRoomLink()">📤 Share Link</button>
+      </div>
+      <div style="color: #666; font-size: 11px; letter-spacing: 3px; margin-top: 14px;">Share the link or have players type the code</div>
     </div>
     <div class="options-panel" style="max-width: 720px; margin: 0 auto; width: 100%;">
       <div style="color: var(--gold-bright); font-size: 12px; letter-spacing: 4px; font-weight: 700; margin-bottom: 14px;">IN THE ROOM (<span id="host-player-count">0</span>)</div>
@@ -2680,30 +2706,82 @@ async function createRemoteGame() {
   const sb = getSupabase();
   if (!sb) { alert('Cannot reach Supabase — check your connection and refresh.'); return; }
   const sid = getSessionId();
-  // Retry up to 5× in the unlikely case of a room_code collision
+  const customEl = document.getElementById('custom-code-input');
+  const custom = customEl ? customEl.value.trim().toUpperCase() : '';
+  const basePayload = {
+    host_session_id: sid,
+    mode: state.mode,
+    wing_count: state.wingCount,
+    difficulty: state.difficulty,
+    category: state.category,
+    interview_enabled: state.interviewPromptsEnabled,
+    status: 'lobby',
+    phase: 'lobby'
+  };
   let data = null, error = null;
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const code = genRoomCode();
-    const res = await sb.from('hotones_games').insert({
-      room_code: code,
-      host_session_id: sid,
-      mode: state.mode,
-      wing_count: state.wingCount,
-      difficulty: state.difficulty,
-      category: state.category,
-      interview_enabled: state.interviewPromptsEnabled,
-      status: 'lobby',
-      phase: 'lobby'
-    }).select().single();
-    if (!res.error) { data = res.data; error = null; break; }
-    if (res.error.code === '23505') { error = res.error; continue; } // unique violation → retry
-    error = res.error; break;
+  if (custom) {
+    if (!/^[A-Z0-9]{4,12}$/.test(custom)) {
+      alert('Custom codes must be 4–12 letters/numbers (A–Z, 0–9).');
+      return;
+    }
+    const res = await sb.from('hotones_games').insert({ ...basePayload, room_code: custom }).select().single();
+    if (res.error) {
+      if (res.error.code === '23505') { alert('Code "' + custom + '" is already in use. Pick another.'); return; }
+      alert('Could not create game: ' + res.error.message); return;
+    }
+    data = res.data;
+  } else {
+    // Auto-generate, retry up to 5× on the rare collision
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = genRoomCode();
+      const res = await sb.from('hotones_games').insert({ ...basePayload, room_code: code }).select().single();
+      if (!res.error) { data = res.data; error = null; break; }
+      if (res.error.code === '23505') { error = res.error; continue; }
+      error = res.error; break;
+    }
+    if (error || !data) { alert('Could not create game: ' + (error ? error.message : 'unknown')); return; }
   }
-  if (error || !data) { alert('Could not create game: ' + (error ? error.message : 'unknown')); return; }
   remoteState.role = 'host';
   remoteState.gameId = data.id;
   remoteState.roomCode = data.room_code;
   enterHostLobby();
+}
+
+async function copyRoomCode() {
+  if (!remoteState.roomCode) return;
+  const btn = document.getElementById('copy-code-btn');
+  try {
+    await navigator.clipboard.writeText(remoteState.roomCode);
+    if (btn) { btn.textContent = '✓ Copied'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = '📋 Copy Code'; btn.classList.remove('copied'); }, 1800); }
+  } catch (e) {
+    // Fallback: select the code text so the user can copy manually
+    const el = document.getElementById('host-room-code');
+    if (el && window.getSelection) {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  }
+}
+
+async function shareRoomLink() {
+  if (!remoteState.roomCode) return;
+  const url = location.origin + location.pathname + '?room=' + encodeURIComponent(remoteState.roomCode);
+  const btn = document.getElementById('share-link-btn');
+  const shareData = {
+    title: 'Join my Hot Ones game',
+    text: 'Hot Ones Picnic — room ' + remoteState.roomCode + '. Tap to join:',
+    url
+  };
+  try {
+    if (navigator.share) { await navigator.share(shareData); return; }
+    await navigator.clipboard.writeText(url);
+    if (btn) { btn.textContent = '✓ Link Copied'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = '📤 Share Link'; btn.classList.remove('copied'); }, 1800); }
+  } catch (e) {
+    // User cancelled share sheet or copy failed — silently no-op
+  }
 }
 
 function joinRemoteGame() {
