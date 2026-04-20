@@ -1010,6 +1010,7 @@
       <div class="top-bar-right">
         <span id="rp-score" style="color: var(--gold-bright); font-size: 13px; letter-spacing: 2px; font-weight: 700;">✓0 · 🔥0</span>
         <button class="icon-btn" onclick="toggleScoreboard()">SCORE</button>
+        <button class="icon-btn" id="rp-tapout-btn" onclick="remotePlayerTapOut()" style="color: var(--fire); border-color: var(--fire);">🏳️ TAP OUT</button>
       </div>
     </div>
     <div class="game-body" style="text-align: center; max-width: 640px; margin: 0 auto;">
@@ -3285,6 +3286,10 @@ async function renderRemoteHostSubmissions() {
   if (players.length === 0) { listEl.innerHTML = '<div style="color:#666; font-style: italic; padding: 10px;">No players in the room.</div>'; return; }
   listEl.innerHTML = players.map(p => {
     const s = byPlayer[p.id];
+    if (p.eliminated) {
+      const label = p.tapped_out ? '🏳️ TAPPED OUT' : '💀 ELIMINATED';
+      return '<div style="padding: 10px 14px; margin-bottom: 6px; color: var(--fire); font-size: 14px; opacity: 0.7;"><strong style="color: var(--white);">' + escapeHtml(p.name) + '</strong> — ' + label + '</div>';
+    }
     if (!s) {
       const label = revealed ? 'NO ANSWER' : 'Not submitted';
       const color = revealed ? 'var(--fire)' : '#666';
@@ -3385,6 +3390,12 @@ async function performRemoteReveal(g, q) {
   }));
   // Clear any single-use immunity flags now that the round has resolved.
   await sb.from('hotones_players').update({ skip_next: false }).eq('game_id', g.id).eq('skip_next', true);
+  // If Standing auto-elim or group tap-outs just emptied the room, short-circuit to finale.
+  const { data: aliveAfter } = await sb.from('hotones_players').select('id').eq('game_id', g.id).eq('eliminated', false);
+  if (!aliveAfter || aliveAfter.length === 0) {
+    await sb.from('hotones_games').update({ status: 'finished', phase: 'finale' }).eq('id', g.id);
+    return;
+  }
   // Sauce ladder bumps when anyone ate this round OR a wildcard earlier flagged it.
   const shouldAdvance = anyAte || g.sauce_advance_this_round === true;
   const nextSauceIdx = shouldAdvance ? Math.min(8, (g.sauce_idx || 0) + sauceStepForGame(g)) : (g.sauce_idx || 0);
@@ -3465,6 +3476,8 @@ async function renderRemotePlayerView() {
   const sub = sRes.data;
   const strikesChip = (remoteState.game && remoteState.game.mode) === 'standing' ? ' · ' + (p.strikes || 0) + '/3 strikes' : '';
   document.getElementById('rp-score').textContent = '✓' + p.correct + ' · 🔥' + p.wings + strikesChip;
+  const tapoutBtn = document.getElementById('rp-tapout-btn');
+  if (tapoutBtn) tapoutBtn.style.display = p.eliminated ? 'none' : '';
 
   const submitBlock = document.getElementById('rp-submit-block');
   const waitingBlock = document.getElementById('rp-waiting-block');
@@ -3564,20 +3577,51 @@ async function renderRemoteScoreboard() {
   const list = players || [];
   const listEl = document.getElementById('score-list');
   const showStrikes = (remoteState.game && remoteState.game.mode) === 'standing';
+  const isHost = remoteState.role === 'host';
   listEl.innerHTML = list.length === 0
     ? '<div style="color:#666; font-style: italic; padding: 10px;">No players yet.</div>'
     : list.map(p => {
         const isMe = remoteState.role === 'player' && p.id === remoteState.playerId;
         const dim = p.eliminated ? 'opacity:0.5;' : '';
         const tag = p.tapped_out ? '<span class="sr-tappedout">🏳️ TAPPED OUT</span>' : (p.eliminated ? '<span class="sr-tappedout" style="color:#888;border:none;">OUT</span>' : '');
+        const action = isHost && !p.eliminated ? '<button class="sr-tapout" onclick="remoteHostTapOutPlayer(\'' + p.id + '\', ' + JSON.stringify(p.name) + ')">TAP OUT</button>' : '';
         return '<div class="score-row" style="' + dim + (isMe ? 'background: rgba(200,169,81,0.08);' : '') + '">'
           + '<div class="sr-name">' + escapeHtml(p.name) + (isMe ? ' <span style="color: var(--gold-bright); font-size: 10px;">(you)</span>' : '') + tag + '</div>'
           + '<div class="sr-stats">'
           +   '<span class="stat-pill correct">' + p.correct + ' ✓</span>'
           +   '<span class="stat-pill wings">' + p.wings + ' 🔥</span>'
           +   (showStrikes ? '<span class="stat-pill strikes">' + p.strikes + '/3</span>' : '')
+          +   action
           + '</div></div>';
       }).join('');
+}
+
+async function remotePlayerTapOut() {
+  if (!remoteState.playerId) return;
+  if (!confirm("Tap out? You're done for the rest of the show — this can't be undone.")) return;
+  const sb = getSupabase();
+  await sb.from('hotones_players').update({ eliminated: true, tapped_out: true, skip_next: false, immune_next: false }).eq('id', remoteState.playerId);
+  // Drop any submission in progress for the current wing
+  if (remoteState.game) {
+    await sb.from('hotones_submissions').delete().eq('player_id', remoteState.playerId).eq('game_id', remoteState.gameId).eq('wing_idx', remoteState.game.current_wing);
+  }
+  renderRemotePlayerView();
+}
+
+async function remoteHostTapOutPlayer(playerId, playerName) {
+  if (!confirm('Tap out ' + playerName + '? They\'re done for the rest of the show.')) return;
+  const sb = getSupabase();
+  await sb.from('hotones_players').update({ eliminated: true, tapped_out: true, skip_next: false, immune_next: false }).eq('id', playerId);
+  if (remoteState.game) {
+    await sb.from('hotones_submissions').delete().eq('player_id', playerId).eq('game_id', remoteState.gameId).eq('wing_idx', remoteState.game.current_wing);
+  }
+  // If this leaves no active players, end the show
+  const { data: alive } = await sb.from('hotones_players').select('id').eq('game_id', remoteState.gameId).eq('eliminated', false);
+  if (!alive || alive.length === 0) {
+    await sb.from('hotones_games').update({ status: 'finished', phase: 'finale' }).eq('id', remoteState.gameId);
+  }
+  renderRemoteScoreboard();
+  renderRemoteHostSubmissions();
 }
 
 // ===== Sauce ladder helpers (remote) =====
